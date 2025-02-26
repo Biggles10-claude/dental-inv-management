@@ -166,35 +166,44 @@ main {
 
 /* Dashboard Section */
 .dashboard-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 1.5rem;
-    margin-bottom: 2rem;
+    display: flex;
+    justify-content: space-between;
+    gap: 0.8rem;
+    margin-bottom: 1.5rem;
 }
 
 .card {
     background-color: var(--card-color);
-    padding: 1.5rem;
+    padding: 0.8rem;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    border-left: 4px solid var(--primary-color);
+    border-left: 3px solid var(--primary-color);
     transition: transform 0.3s;
 }
 
 .card:hover {
-    transform: translateY(-5px);
+    transform: translateY(-3px);
 }
 
 .card h3 {
-    font-size: 1rem;
+    font-size: 0.9rem;
     color: var(--text-light);
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.3rem;
+    white-space: nowrap;
 }
 
 .card .count {
-    font-size: 2rem;
+    font-size: 1.5rem;
     font-weight: 700;
     color: var(--primary-color);
+    margin: 0;
+}
+
+/* Dashboard specific cards */
+.dashboard-grid .card {
+    text-align: center;
+    min-width: 0;
+    flex: 1;
 }
 
 .recent-activity {
@@ -336,6 +345,35 @@ small {
     display: flex;
     justify-content: flex-end;
     gap: 1rem;
+}
+
+/* Form validation styles */
+.valid-input {
+    border-color: var(--success-color) !important;
+    background-color: rgba(76, 175, 80, 0.05) !important;
+}
+
+.invalid-input {
+    border-color: var(--danger-color) !important;
+    background-color: rgba(244, 67, 54, 0.05) !important;
+}
+
+.validation-feedback {
+    font-size: 0.8rem;
+    margin-top: 2px;
+    margin-left: 2px;
+}
+
+.validation-feedback.error {
+    color: var(--danger-color);
+}
+
+.form-error-message {
+    background-color: rgba(244, 67, 54, 0.1);
+    border-left: 3px solid var(--danger-color);
+    padding: 10px 15px;
+    margin-bottom: 15px;
+    border-radius: 4px;
 }
 
 /* Reports Section */
@@ -497,6 +535,73 @@ footer {
     .category-management {
         grid-template-columns: 1fr;
     }
+    
+    /* Mobile dashboard layout */
+    .dashboard-grid {
+        flex-wrap: wrap;
+    }
+    
+    .dashboard-grid .card {
+        flex-basis: calc(50% - 0.5rem);
+        margin-bottom: 0.8rem;
+    }
+    
+    #inventory-table {
+        font-size: 0.9rem;
+    }
+    
+    #inventory-table th:nth-child(4),
+    #inventory-table td:nth-child(4),
+    #inventory-table th:nth-child(6),
+    #inventory-table td:nth-child(6) {
+        display: none; /* Hide less important columns on mobile */
+    }
+    
+    .status {
+        padding: 2px 6px;
+        font-size: 0.7rem;
+    }
+    
+    .btn-small {
+        padding: 4px 8px;
+        font-size: 0.8rem;
+    }
+    
+    .filters {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .filters > * {
+        width: 100%;
+        margin: 0;
+    }
+    
+    .popup-notification {
+        width: 90%;
+        left: 5%;
+        right: 5%;
+    }
+    
+    .popup-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 20px;
+    }
+    
+    .report-options {
+        grid-template-columns: 1fr;
+    }
+    
+    .report-preview h3 {
+        font-size: 1.2rem;
+    }
+    
+    /* Better touch targets for mobile */
+    input, select, button, .btn {
+        min-height: 44px; /* Minimum recommended size for touch targets */
+    }
+}
     
     .footer-content {
         flex-direction: column;
@@ -666,8 +771,9 @@ footer {
 }
 
 .popup-notification.show {
-    opacity: 1;
-    transform: translateY(0);
+    opacity: 1 !important;
+    transform: translateY(0) !important;
+    visibility: visible !important; 
 }
 
 .popup-notification.success {

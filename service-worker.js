@@ -1,11 +1,13 @@
 // Service worker for Dental Inventory Manager
-const CACHE_NAME = 'dental-inventory-cache-v1';
+const CACHE_NAME = 'dental-inventory-cache-v2'; // Increment cache version
 const urlsToCache = [
   '/',
   '/index.html',
   '/style.css',
   '/script.js',
-  '/favicon.ico'
+  '/favicon.ico',
+  '/favicon.svg',
+  '/manifest.json'
 ];
 
 // Install event - cache files

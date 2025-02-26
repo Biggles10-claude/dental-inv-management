@@ -6,6 +6,8 @@
   "display": "standalone",
   "background_color": "#2196f3",
   "theme_color": "#2196f3",
+  "orientation": "any",
+  "categories": ["business", "productivity", "utilities"],
   "icons": [
     {
       "src": "favicon.svg",
@@ -13,5 +15,19 @@
       "type": "image/svg+xml",
       "purpose": "any maskable"
     }
-  ]
+  ],
+  "shortcuts": [
+    {
+      "name": "View Inventory",
+      "url": "/#inventory",
+      "description": "Go directly to inventory list"
+    },
+    {
+      "name": "Add New Item",
+      "url": "/#add-item",
+      "description": "Add a new inventory item"
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false
 }

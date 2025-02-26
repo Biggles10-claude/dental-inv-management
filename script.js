@@ -75,25 +75,43 @@ const defaultInventoryData = {
     categories: ["consumables", "instruments", "equipment", "medications"],
     activities: [
         {
+            id: 1,
             date: "02/25/2025",
             item: "Composite Filling Material",
             action: "Stock Reduced (5 units)",
             user: "Dr. Smith",
-            timestamp: "2025-02-25T10:30:00"
+            timestamp: "2025-02-25T10:30:00",
+            details: {
+                quantity: 5,
+                previousQuantity: 50,
+                newQuantity: 45
+            }
         },
         {
+            id: 2,
             date: "02/24/2025",
             item: "Dental Anesthetic",
             action: "Reordered (20 units)",
             user: "Office Manager",
-            timestamp: "2025-02-24T14:15:00"
+            timestamp: "2025-02-24T14:15:00",
+            details: {
+                quantity: 20,
+                supplier: "Medical Supplies Inc."
+            }
         },
         {
+            id: 3,
             date: "02/23/2025",
             item: "Examination Gloves",
             action: "Added (500 units)",
             user: "Inventory Staff",
-            timestamp: "2025-02-23T09:45:00"
+            timestamp: "2025-02-23T09:45:00",
+            details: {
+                quantity: 500,
+                previousQuantity: 0,
+                newQuantity: 500,
+                price: 0.15
+            }
         }
     ],
     users: [
@@ -286,6 +304,12 @@ function generateId() {
     return items.length > 0 ? Math.max(...items.map(item => item.id)) + 1 : 1;
 }
 
+// Create a unique activity ID
+function generateActivityId() {
+    const activities = inventoryData.activities;
+    return activities.length > 0 ? Math.max(...activities.map(activity => activity.id || 0)) + 1 : 1;
+}
+
 // Update item status based on quantity
 function updateItemStatus(item) {
     if (item.quantity <= 0) {
@@ -302,15 +326,17 @@ function updateItemStatus(item) {
     return item;
 }
 
-// Add activity log entry
-function logActivity(itemName, action, user = getCurrentUser()?.name || 'System') {
+// Add activity log entry with improved details
+function logActivity(itemName, action, user = getCurrentUser()?.name || 'System', details = {}) {
     const now = new Date();
     const activity = {
+        id: generateActivityId(),
         date: now.toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}),
         item: itemName,
         action: action,
         user: user,
-        timestamp: now.toISOString()
+        timestamp: now.toISOString(),
+        details: details // Can contain quantity, price, category, etc.
     };
     
     inventoryData.activities.unshift(activity);
@@ -420,6 +446,87 @@ function updateAppSettings(settings) {
     }
 }
 
+// Function to validate form input
+function validateFormInput(input, rules = {}) {
+    const { required, minLength, maxLength, min, max, pattern, email, match, custom } = rules;
+    const value = input.value.trim();
+    
+    // Required check
+    if (required && value === '') {
+        return { valid: false, message: 'This field is required' };
+    }
+    
+    // Min length check
+    if (minLength && value.length < minLength) {
+        return { valid: false, message: `Must be at least ${minLength} characters` };
+    }
+    
+    // Max length check
+    if (maxLength && value.length > maxLength) {
+        return { valid: false, message: `Must be at most ${maxLength} characters` };
+    }
+    
+    // Min value check (for number inputs)
+    if (min !== undefined && parseFloat(value) < min) {
+        return { valid: false, message: `Value must be at least ${min}` };
+    }
+    
+    // Max value check (for number inputs)
+    if (max !== undefined && parseFloat(value) > max) {
+        return { valid: false, message: `Value must be at most ${max}` };
+    }
+    
+    // Pattern check
+    if (pattern && !pattern.test(value)) {
+        return { valid: false, message: 'Invalid format' };
+    }
+    
+    // Email format check
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+        return { valid: false, message: 'Invalid email format' };
+    }
+    
+    // Match another input
+    if (match && value !== match.value) {
+        return { valid: false, message: 'Values do not match' };
+    }
+    
+    // Custom validation function
+    if (custom && typeof custom === 'function') {
+        const customResult = custom(value);
+        if (customResult !== true) {
+            return { valid: false, message: customResult || 'Invalid input' };
+        }
+    }
+    
+    return { valid: true };
+}
+
+// Add feedback to form fields
+function showValidationFeedback(input, validationResult) {
+    // Remove any existing feedback
+    const existingFeedback = input.parentNode.querySelector('.validation-feedback');
+    if (existingFeedback) {
+        existingFeedback.remove();
+    }
+    
+    // Reset input styles
+    input.classList.remove('valid-input', 'invalid-input');
+    
+    // Add appropriate feedback
+    if (!validationResult.valid) {
+        const feedbackElement = document.createElement('div');
+        feedbackElement.className = 'validation-feedback error';
+        feedbackElement.textContent = validationResult.message;
+        input.parentNode.appendChild(feedbackElement);
+        input.classList.add('invalid-input');
+    } else {
+        input.classList.add('valid-input');
+    }
+    
+    return validationResult.valid;
+}
+
 function backupData() {
     try {
         // In a real app, this would send data to a server
@@ -438,6 +545,12 @@ function backupData() {
         link.href = url;
         link.download = `dental-inventory-backup-${new Date().toISOString().split('T')[0]}.json`;
         
+        // Log the backup activity
+        logActivity('System', 'Data Backup Created', getCurrentUser()?.name || 'System', {
+            backupSize: Math.round(backup.length / 1024) + ' KB',
+            timestamp: new Date().toISOString()
+        });
+        
         // Append to body, click and remove
         document.body.appendChild(link);
         link.click();
@@ -449,6 +562,53 @@ function backupData() {
         };
     } catch (error) {
         console.error('Backup error:', error);
+        return {
+            success: false,
+            error: error.message
+        };
+    }
+}
+
+// Function to restore from backup
+function restoreFromBackup(backupData) {
+    try {
+        // Validate backup data
+        if (!backupData || typeof backupData !== 'object') {
+            throw new Error('Invalid backup data format');
+        }
+        
+        const requiredKeys = ['items', 'categories', 'activities', 'users', 'appSettings'];
+        for (const key of requiredKeys) {
+            if (!backupData[key]) {
+                throw new Error(`Backup is missing required data: ${key}`);
+            }
+        }
+        
+        // Create a backup of current data before restoring
+        const currentDataBackup = JSON.stringify(inventoryData);
+        
+        // Restore data
+        inventoryData = {...backupData};
+        
+        // Update last restore time
+        inventoryData.appSettings.lastRestore = new Date().toISOString();
+        
+        // Save the restored data
+        saveInventoryData();
+        
+        // Log the restore activity
+        logActivity('System', 'Data Restored from Backup', getCurrentUser()?.name || 'System', {
+            timestamp: new Date().toISOString(),
+            restoredItems: backupData.items.length,
+            restoredActivities: backupData.activities.length
+        });
+        
+        return {
+            success: true,
+            message: 'Data restored successfully'
+        };
+    } catch (error) {
+        console.error('Restore error:', error);
         return {
             success: false,
             error: error.message
@@ -749,32 +909,191 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // Handle backup
+    // Handle backup and restore
     if (backupButton) {
         backupButton.addEventListener('click', function(e) {
             e.preventDefault();
             
-            // Show loading
-            showLoading();
+            // Create a dropdown menu for backup options
+            const backupMenu = document.createElement('div');
+            backupMenu.className = 'dropdown-menu backup-options';
+            backupMenu.innerHTML = `
+                <a href="#" class="dropdown-item" id="create-backup">Create Backup</a>
+                <a href="#" class="dropdown-item" id="restore-backup">Restore from Backup</a>
+            `;
             
-            try {
-                // Perform backup
-                const result = backupData();
+            // Position and show the menu
+            backupMenu.style.position = 'absolute';
+            backupMenu.style.right = '0';
+            backupMenu.style.top = '100%';
+            backupMenu.style.zIndex = '1000';
+            
+            // Add to dropdown container
+            this.closest('.dropdown-menu').appendChild(backupMenu);
+            
+            // Prevent click bubbling
+            backupMenu.addEventListener('click', function(evt) {
+                evt.stopPropagation();
+            });
+            
+            // Handle create backup
+            document.getElementById('create-backup').addEventListener('click', function(evt) {
+                evt.preventDefault();
+                evt.stopPropagation();
                 
-                if (result.success) {
-                    // Show success message
-                    showToast('Backup created successfully', 'success');
-                } else {
-                    // Show error message
-                    showToast(`Backup failed: ${result.error}`, 'error');
+                // Close dropdown menu
+                document.body.click(); // Close all dropdowns
+                
+                // Show loading
+                showLoading();
+                
+                try {
+                    // Perform backup
+                    const result = backupData();
+                    
+                    if (result.success) {
+                        // Show success message
+                        showToast('Backup created successfully', 'success');
+                    } else {
+                        // Show error message
+                        showToast(`Backup failed: ${result.error}`, 'error');
+                    }
+                } catch (error) {
+                    console.error('Backup error:', error);
+                    showToast('Failed to create backup', 'error');
+                } finally {
+                    // Hide loading after a short delay to ensure download starts
+                    setTimeout(hideLoading, 1000);
                 }
-            } catch (error) {
-                console.error('Backup error:', error);
-                showToast('Failed to create backup', 'error');
-            } finally {
-                // Hide loading after a short delay to ensure download starts
-                setTimeout(hideLoading, 1000);
-            }
+            });
+            
+            // Handle restore backup
+            document.getElementById('restore-backup').addEventListener('click', function(evt) {
+                evt.preventDefault();
+                evt.stopPropagation();
+                
+                // Close dropdown menu
+                document.body.click(); // Close all dropdowns
+                
+                // Create file input for uploading backup
+                const fileInput = document.createElement('input');
+                fileInput.type = 'file';
+                fileInput.accept = '.json';
+                fileInput.style.display = 'none';
+                document.body.appendChild(fileInput);
+                
+                // Trigger file selection
+                fileInput.click();
+                
+                // Handle file selection
+                fileInput.addEventListener('change', function() {
+                    if (fileInput.files.length > 0) {
+                        const file = fileInput.files[0];
+                        
+                        // Show loading
+                        showLoading();
+                        
+                        // Read the file
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            try {
+                                const backupData = JSON.parse(e.target.result);
+                                
+                                // Create confirmation dialog
+                                const confirmDialog = document.createElement('div');
+                                confirmDialog.className = 'confirmation-dialog';
+                                confirmDialog.innerHTML = `
+                                    <div class="confirmation-content">
+                                        <h3>Confirm Restore</h3>
+                                        <p>You are about to restore data from backup. This will replace your current inventory data.</p>
+                                        <p><strong>Backup contains:</strong></p>
+                                        <ul>
+                                            <li>${backupData.items?.length || 0} items</li>
+                                            <li>${backupData.categories?.length || 0} categories</li>
+                                            <li>${backupData.activities?.length || 0} activity logs</li>
+                                            <li>${backupData.users?.length || 0} user accounts</li>
+                                        </ul>
+                                        <p>This action cannot be undone. Are you sure you want to continue?</p>
+                                        <div class="confirmation-actions">
+                                            <button class="btn secondary cancel-confirmation">Cancel</button>
+                                            <button class="btn primary confirm-action">Restore Data</button>
+                                        </div>
+                                    </div>
+                                `;
+                                
+                                // Hide loading
+                                hideLoading();
+                                
+                                document.body.appendChild(confirmDialog);
+                                
+                                // Handle cancel button
+                                confirmDialog.querySelector('.cancel-confirmation').addEventListener('click', function() {
+                                    document.body.removeChild(confirmDialog);
+                                });
+                                
+                                // Handle confirm button
+                                confirmDialog.querySelector('.confirm-action').addEventListener('click', function() {
+                                    // Show loading
+                                    showLoading();
+                                    
+                                    // Close dialog
+                                    document.body.removeChild(confirmDialog);
+                                    
+                                    try {
+                                        // Perform restore
+                                        const result = restoreFromBackup(backupData);
+                                        
+                                        if (result.success) {
+                                            // Show success message
+                                            showToast('Data restored successfully', 'success');
+                                            
+                                            // Reload the interface
+                                            renderInventoryTable();
+                                            renderCategories();
+                                            updateDashboard();
+                                        } else {
+                                            // Show error message
+                                            showToast(`Restore failed: ${result.error}`, 'error');
+                                        }
+                                    } catch (error) {
+                                        console.error('Restore error:', error);
+                                        showToast('Failed to restore data', 'error');
+                                    } finally {
+                                        // Hide loading
+                                        hideLoading();
+                                    }
+                                });
+                            } catch (error) {
+                                console.error('Error reading backup file:', error);
+                                showToast('Invalid backup file format', 'error');
+                                hideLoading();
+                            }
+                        };
+                        
+                        reader.onerror = function() {
+                            console.error('Error reading file');
+                            showToast('Error reading backup file', 'error');
+                            hideLoading();
+                        };
+                        
+                        reader.readAsText(file);
+                    }
+                    
+                    // Remove the file input
+                    document.body.removeChild(fileInput);
+                });
+            });
+            
+            // Close when clicking outside
+            document.addEventListener('click', function closeBackupMenu() {
+                if (document.contains(backupMenu)) {
+                    backupMenu.remove();
+                }
+                document.removeEventListener('click', closeBackupMenu);
+            });
+            
+            // Prevent immediate closing
+            e.stopPropagation();
         });
     }
     
@@ -889,67 +1208,165 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
     
-    // Form Submission Handling
+    // Form Submission Handling with improved validation
     const addItemForm = document.getElementById('add-item-form');
     if (addItemForm) {
+        // Add real-time validation as user types
+        const formInputs = addItemForm.querySelectorAll('input, select');
+        formInputs.forEach(input => {
+            input.addEventListener('blur', function() {
+                // Skip validation for optional fields if empty
+                if (!this.required && !this.value.trim()) return;
+                
+                let validationRules = {};
+                
+                // Set validation rules based on input
+                switch(this.id) {
+                    case 'item-name':
+                        validationRules = { required: true, minLength: 3, maxLength: 100 };
+                        break;
+                    case 'item-category':
+                        validationRules = { required: true };
+                        break;
+                    case 'item-quantity':
+                        validationRules = { required: true, min: 0 };
+                        break;
+                    case 'item-unit':
+                        validationRules = { required: true };
+                        break;
+                    case 'item-min-quantity':
+                        validationRules = { min: 0 };
+                        break;
+                    case 'item-price':
+                        validationRules = { min: 0 };
+                        break;
+                    default:
+                        // No specific validation for other fields
+                        break;
+                }
+                
+                // Validate and show feedback
+                const validationResult = validateFormInput(this, validationRules);
+                showValidationFeedback(this, validationResult);
+            });
+        });
+        
+        // Form submission handler
         addItemForm.addEventListener('submit', function(e) {
             e.preventDefault();
             
-            // Collect form data
-            const formData = new FormData(this);
-            const itemData = {
-                id: inventoryData.items.length + 1,
-                name: document.getElementById('item-name').value,
-                category: document.getElementById('item-category').value,
-                quantity: parseInt(document.getElementById('item-quantity').value),
-                unit: document.getElementById('item-unit').value,
-                minQuantity: parseInt(document.getElementById('item-min-quantity').value) || 0,
-                price: parseFloat(document.getElementById('item-price').value) || 0,
-                expiry: document.getElementById('item-expiry').value 
-                    ? new Date(document.getElementById('item-expiry').value).toLocaleDateString('en-US', {month: '2-digit', year: 'numeric'})
-                    : 'N/A',
-                location: document.getElementById('item-location').value || 'Not specified'
-            };
+            // Get form elements to validate
+            const nameInput = document.getElementById('item-name');
+            const categoryInput = document.getElementById('item-category');
+            const quantityInput = document.getElementById('item-quantity');
+            const unitInput = document.getElementById('item-unit');
+            const minQuantityInput = document.getElementById('item-min-quantity');
+            const priceInput = document.getElementById('item-price');
+            const expiryInput = document.getElementById('item-expiry');
+            const locationInput = document.getElementById('item-location');
+            const descriptionInput = document.getElementById('item-description');
             
-            // Determine item status
-            if (itemData.quantity <= 0) {
-                itemData.status = 'out-of-stock';
-            } else if (itemData.quantity <= itemData.minQuantity) {
-                itemData.status = 'low-stock';
-            } else {
-                itemData.status = 'in-stock';
+            // Validate each field
+            const nameValidation = validateFormInput(nameInput, { required: true, minLength: 3, maxLength: 100 });
+            const categoryValidation = validateFormInput(categoryInput, { required: true });
+            const quantityValidation = validateFormInput(quantityInput, { required: true, min: 0 });
+            const unitValidation = validateFormInput(unitInput, { required: true });
+            const minQuantityValidation = validateFormInput(minQuantityInput, { min: 0 });
+            const priceValidation = validateFormInput(priceInput, { min: 0 });
+            
+            // Show validation feedback
+            const nameValid = showValidationFeedback(nameInput, nameValidation);
+            const categoryValid = showValidationFeedback(categoryInput, categoryValidation);
+            const quantityValid = showValidationFeedback(quantityInput, quantityValidation);
+            const unitValid = showValidationFeedback(unitInput, unitValidation);
+            const minQuantityValid = showValidationFeedback(minQuantityInput, minQuantityValidation);
+            const priceValid = showValidationFeedback(priceInput, priceValidation);
+            
+            // Check if all validations passed
+            if (!nameValid || !categoryValid || !quantityValid || !unitValid || !minQuantityValid || !priceValid) {
+                // Show validation error message at top of form
+                let formError = this.querySelector('.form-error-message');
+                if (!formError) {
+                    formError = document.createElement('div');
+                    formError.className = 'form-error-message';
+                    formError.style.color = 'red';
+                    formError.style.marginBottom = '15px';
+                    formError.style.textAlign = 'center';
+                    this.insertBefore(formError, this.firstChild);
+                }
+                formError.textContent = 'Please correct the validation errors below.';
+                
+                // Scroll to form top
+                this.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                
+                return; // Stop form submission
             }
             
-            // In a real app, you would send this data to a server
-            console.log('New item added:', itemData);
+            // All validation passed - collect form data
+            const itemData = {
+                id: generateId(),
+                name: nameInput.value.trim(),
+                category: categoryInput.value,
+                quantity: parseInt(quantityInput.value),
+                unit: unitInput.value.trim(),
+                minQuantity: parseInt(minQuantityInput.value) || 0,
+                price: parseFloat(priceInput.value) || 0,
+                expiry: expiryInput.value 
+                    ? new Date(expiryInput.value).toLocaleDateString('en-US', {month: '2-digit', year: 'numeric'})
+                    : 'N/A',
+                location: locationInput.value.trim() || 'Not specified',
+                description: descriptionInput.value.trim(),
+                lastUpdated: new Date().toISOString()
+            };
             
-            // Add to our mock data
-            inventoryData.items.push(itemData);
+            // Determine item status using the updateItemStatus function
+            updateItemStatus(itemData);
             
-            // Add to activity log
-            inventoryData.activities.unshift({
-                date: new Date().toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}),
-                item: itemData.name,
-                action: `Added (${itemData.quantity} ${itemData.unit})`,
-                user: 'Admin User'
-            });
-            
-            // Show success message
-            const successMessage = document.createElement('div');
-            successMessage.classList.add('success-message');
-            successMessage.textContent = `${itemData.name} has been added to inventory.`;
-            successMessage.style.cssText = 'background-color: #4caf50; color: white; padding: 1rem; border-radius: 4px; margin-top: 1rem;';
-            
-            this.reset(); // Clear the form
-            this.appendChild(successMessage);
-            
-            // Update inventory table
-            renderInventoryTable();
-            
-            // Remove success message after 3 seconds
-            setTimeout(() => {
-                successMessage.remove();
-            }, 3000);
+            try {
+                // Add to our data
+                inventoryData.items.push(itemData);
+                
+                // Save to localStorage
+                saveInventoryData();
+                
+                // Add to activity log with detailed information
+                logActivity(itemData.name, `Added (${itemData.quantity} ${itemData.unit})`, 
+                    getCurrentUser()?.name || 'Admin User', {
+                        quantity: itemData.quantity,
+                        price: itemData.price,
+                        category: itemData.category,
+                        status: itemData.status
+                    }
+                );
+                
+                // Reset form
+                this.reset();
+                
+                // Clear any validation styling
+                const inputs = this.querySelectorAll('input, select, textarea');
+                inputs.forEach(input => {
+                    input.classList.remove('valid-input', 'invalid-input');
+                    const feedback = input.parentNode.querySelector('.validation-feedback');
+                    if (feedback) feedback.remove();
+                });
+                
+                // Clear form error if exists
+                const formError = this.querySelector('.form-error-message');
+                if (formError) formError.remove();
+                
+                // Update inventory table and dashboard for immediate feedback
+                renderInventoryTable();
+                updateDashboard();
+                
+                // Show success notification using the improved toast
+                showToast(`${itemData.name} has been added to inventory`, 'success');
+                
+            } catch (error) {
+                console.error('Error adding item:', error);
+                
+                // Show error message
+                showToast('Failed to add item to inventory', 'error');
+            }
         });
     }
     
@@ -987,11 +1404,47 @@ document.addEventListener('DOMContentLoaded', () => {
         renderInventoryTable(filteredItems);
     }
     
-    // Add event listeners to filters
+    // Add event listeners to filters with debounce to improve performance
     if (searchInput && categoryFilter && statusFilter) {
-        searchInput.addEventListener('input', filterInventory);
+        // Debounce function to prevent excessive filtering on rapid input
+        function debounce(func, wait) {
+            let timeout;
+            return function(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            }
+        }
+        
+        // Apply debounced filtering for search input (better performance)
+        const debouncedFilter = debounce(filterInventory, 300);
+        searchInput.addEventListener('input', debouncedFilter);
+        
+        // Regular filtering for select boxes
         categoryFilter.addEventListener('change', filterInventory);
         statusFilter.addEventListener('change', filterInventory);
+        
+        // Add clear filters button
+        const filtersContainer = searchInput.closest('.filters');
+        if (filtersContainer) {
+            const clearButton = document.createElement('button');
+            clearButton.className = 'btn secondary';
+            clearButton.textContent = 'Clear Filters';
+            clearButton.style.marginLeft = 'auto';
+            filtersContainer.appendChild(clearButton);
+            
+            clearButton.addEventListener('click', function() {
+                // Reset all filter inputs
+                searchInput.value = '';
+                categoryFilter.value = '';
+                statusFilter.value = '';
+                
+                // Update display
+                filterInventory();
+                
+                // Show feedback
+                showToast('Filters cleared', 'success');
+            });
+        }
     }
     
     // Render inventory table
@@ -2281,6 +2734,8 @@ function showOrderItemModal(item) {
 
 // Show toast message - improved version with popup notifications
 function showToast(message, type = 'success') {
+    console.log('Showing toast:', message, type); // Debug log
+    
     // Create popup notification
     const popup = document.createElement('div');
     popup.className = `popup-notification ${type}`;
@@ -2299,21 +2754,33 @@ function showToast(message, type = 'success') {
         </div>
     `;
     
+    // Remove any existing popups
+    const existingPopups = document.querySelectorAll('.popup-notification');
+    existingPopups.forEach(p => {
+        if (document.body.contains(p)) {
+            document.body.removeChild(p);
+        }
+    });
+    
+    // Add to DOM
     document.body.appendChild(popup);
     
+    // Force layout reflow before adding the show class
+    popup.getBoundingClientRect();
+    
     // Show the popup (for animation)
-    setTimeout(() => {
-        popup.classList.add('show');
-    }, 10);
+    popup.classList.add('show');
     
     // Auto remove after set time
     const displayTime = type === 'error' ? 3000 : 2000;
     setTimeout(() => {
-        popup.classList.remove('show');
-        setTimeout(() => {
-            if (document.body.contains(popup)) {
-                document.body.removeChild(popup);
-            }
-        }, 300);
+        if (document.body.contains(popup)) {
+            popup.classList.remove('show');
+            setTimeout(() => {
+                if (document.body.contains(popup)) {
+                    document.body.removeChild(popup);
+                }
+            }, 300);
+        }
     }, displayTime);
 }
