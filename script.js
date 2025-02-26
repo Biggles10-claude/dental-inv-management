@@ -1911,69 +1911,96 @@ function showEditItemModal(item) {
 
 // Show Use Item Modal function
 function showUseItemModal(item) {
-    // Create modal container
-    const modalContainer = document.createElement('div');
-    modalContainer.className = 'modal-container';
-    
-    // Create modal content
-    modalContainer.innerHTML = `
-        <div class="modal">
-            <div class="modal-header">
-                <h3>Use Item: ${item.name}</h3>
-                <button class="close-modal">&times;</button>
+    try {
+        // Ensure we're working with the most up-to-date item data
+        const itemIndex = inventoryData.items.findIndex(i => i.id === item.id);
+        if (itemIndex === -1) {
+            showToast('Item not found', 'error');
+            return;
+        }
+        
+        // Get the fresh item data
+        const freshItem = inventoryData.items[itemIndex];
+        
+        // Create modal container
+        const modalContainer = document.createElement('div');
+        modalContainer.className = 'modal-container';
+        
+        // Create modal content
+        modalContainer.innerHTML = `
+            <div class="modal">
+                <div class="modal-header">
+                    <h3>Use Item: ${freshItem.name}</h3>
+                    <button class="close-modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <form id="use-item-form">
+                        <p>Current stock: <strong>${freshItem.quantity} ${freshItem.unit}</strong></p>
+                        
+                        <div class="form-group">
+                            <label for="use-quantity">Quantity to Use</label>
+                            <input type="number" id="use-quantity" min="1" max="${freshItem.quantity}" value="1" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="use-notes">Notes (Optional)</label>
+                            <textarea id="use-notes" rows="2"></textarea>
+                        </div>
+                        
+                        <div id="use-error-container" class="error-message" style="display: none; color: red; margin: 10px 0; text-align: center;"></div>
+                        
+                        <div class="form-actions">
+                            <button type="button" class="btn secondary close-modal">Cancel</button>
+                            <button type="submit" class="btn primary">Confirm Use</button>
+                        </div>
+                    </form>
+                </div>
             </div>
-            <div class="modal-body">
-                <form id="use-item-form">
-                    <p>Current stock: ${item.quantity} ${item.unit}</p>
-                    
-                    <div class="form-group">
-                        <label for="use-quantity">Quantity to Use</label>
-                        <input type="number" id="use-quantity" min="1" max="${item.quantity}" value="1" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="use-notes">Notes (Optional)</label>
-                        <textarea id="use-notes" rows="2"></textarea>
-                    </div>
-                    
-                    <input type="hidden" id="use-item-id" value="${item.id}">
-                    
-                    <div class="form-actions">
-                        <button type="button" class="btn secondary close-modal">Cancel</button>
-                        <button type="submit" class="btn primary">Confirm Use</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    `;
-    
-    // Add modal to the page
-    document.body.appendChild(modalContainer);
-    
-    // Add event listeners
-    modalContainer.querySelector('.close-modal').addEventListener('click', function() {
-        document.body.removeChild(modalContainer);
-    });
-    
-    modalContainer.querySelector('#use-item-form').addEventListener('submit', function(e) {
-        e.preventDefault();
+        `;
         
-        const itemId = parseInt(document.getElementById('use-item-id').value);
-        const useQuantity = parseInt(document.getElementById('use-quantity').value);
-        const notes = document.getElementById('use-notes').value;
+        // Add modal to the page
+        document.body.appendChild(modalContainer);
         
-        const item = inventoryData.items.find(i => i.id === itemId);
+        // Add event listeners for closing the modal
+        const closeButtons = modalContainer.querySelectorAll('.close-modal');
+        closeButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                document.body.removeChild(modalContainer);
+            });
+        });
         
-        if (item && useQuantity > 0 && useQuantity <= item.quantity) {
-            // Show confirmation dialog
+        // Add event listener for form submission
+        const useForm = modalContainer.querySelector('#use-item-form');
+        useForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Clear any previous error messages
+            const errorContainer = document.getElementById('use-error-container');
+            errorContainer.style.display = 'none';
+            errorContainer.textContent = '';
+            
+            // Get form values
+            const useQuantity = parseInt(document.getElementById('use-quantity').value);
+            const notes = document.getElementById('use-notes').value;
+            
+            // Validate form input
+            if (isNaN(useQuantity) || useQuantity <= 0 || useQuantity > freshItem.quantity) {
+                errorContainer.textContent = useQuantity <= 0 
+                    ? 'Please enter a quantity greater than zero.' 
+                    : `Only ${freshItem.quantity} ${freshItem.unit} available in stock.`;
+                errorContainer.style.display = 'block';
+                return;
+            }
+            
+            // Create confirmation dialog
             const confirmDialog = document.createElement('div');
             confirmDialog.className = 'confirmation-dialog';
             confirmDialog.innerHTML = `
                 <div class="confirmation-content">
                     <h3>Confirm Usage</h3>
-                    <p>You are about to use <strong>${useQuantity} ${item.unit}</strong> of <strong>${item.name}</strong>.</p>
-                    <p>Current stock: ${item.quantity} ${item.unit}</p>
-                    <p>Stock after use: ${item.quantity - useQuantity} ${item.unit}</p>
+                    <p>You are about to use <strong>${useQuantity} ${freshItem.unit}</strong> of <strong>${freshItem.name}</strong>.</p>
+                    <p>Current stock: ${freshItem.quantity} ${freshItem.unit}</p>
+                    <p>Stock after use: ${freshItem.quantity - useQuantity} ${freshItem.unit}</p>
                     ${notes ? `<p>Notes: ${notes}</p>` : ''}
                     <div class="confirmation-actions">
                         <button class="btn secondary cancel-confirmation">Cancel</button>
@@ -1991,195 +2018,198 @@ function showUseItemModal(item) {
             
             // Handle confirm button
             confirmDialog.querySelector('.confirm-action').addEventListener('click', function() {
-                // Change to processing state
-                this.textContent = 'Processing...';
-                this.disabled = true;
-                
-                // Close both dialogs immediately
-                document.body.removeChild(confirmDialog);
-                document.body.removeChild(modalContainer);
-                
-                // Perform the operation
                 try {
-                    // Reduce the quantity
-                    item.quantity -= useQuantity;
+                    // Change to processing state
+                    this.textContent = 'Processing...';
+                    this.disabled = true;
                     
-                    // Update status
-                    updateItemStatus(item);
+                    // Need to get the item again as it may have been updated
+                    const currentIndex = inventoryData.items.findIndex(i => i.id === freshItem.id);
+                    
+                    if (currentIndex === -1) {
+                        throw new Error('Item no longer exists in inventory');
+                    }
+                    
+                    const currentItem = {...inventoryData.items[currentIndex]};
+                    
+                    // Check if quantity is still valid
+                    if (useQuantity > currentItem.quantity) {
+                        throw new Error(`Not enough stock available. Only ${currentItem.quantity} ${currentItem.unit} in stock.`);
+                    }
+                    
+                    // Update the quantity
+                    currentItem.quantity -= useQuantity;
+                    
+                    // Update the status
+                    updateItemStatus(currentItem);
+                    
+                    // Update the item in the array
+                    inventoryData.items[currentIndex] = currentItem;
                     
                     // Log the activity
-                    const actionText = `Stock Reduced (${useQuantity} ${item.unit})${notes ? ` - Note: ${notes}` : ''}`;
-                    logActivity(item.name, actionText);
+                    const actionText = `Stock Reduced (${useQuantity} ${currentItem.unit})${notes ? ` - Note: ${notes}` : ''}`;
+                    logActivity(currentItem.name, actionText);
                     
-                    // Save data
+                    // Save data to localStorage
                     saveInventoryData();
                     
-                    // Update UI
+                    // Close dialogs first before UI updates to prevent visual glitches
+                    document.body.removeChild(confirmDialog);
+                    document.body.removeChild(modalContainer);
+                    
+                    // Force direct DOM update for immediate feedback (without waiting for renderInventoryTable to finish)
+                    const tableRows = document.querySelectorAll('#inventory-table tbody tr');
+                    for (const row of tableRows) {
+                        const itemNameCell = row.querySelector('td:first-child');
+                        if (itemNameCell && itemNameCell.textContent === currentItem.name) {
+                            const quantityCell = row.querySelector('td:nth-child(3)');
+                            if (quantityCell) {
+                                quantityCell.textContent = currentItem.quantity;
+                            }
+                            
+                            const statusCell = row.querySelector('td:nth-child(5) .status');
+                            if (statusCell) {
+                                statusCell.className = `status ${currentItem.status}`;
+                                statusCell.textContent = currentItem.status.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase());
+                            }
+                            
+                            // Update action button if quantity is now 0
+                            if (currentItem.quantity === 0) {
+                                const actionButton = row.querySelector('.use-item');
+                                if (actionButton) {
+                                    actionButton.textContent = 'Order';
+                                    actionButton.classList.remove('use-item');
+                                    actionButton.classList.add('order-item');
+                                }
+                            }
+                            break;
+                        }
+                    }
+                    
+                    // Update UI completely
                     renderInventoryTable();
                     updateDashboard();
                     
-                    // Show compact success notification popup
-                    const popup = document.createElement('div');
-                    popup.className = 'popup-notification success';
-                    popup.innerHTML = `
-                        <div class="popup-icon">✓</div>
-                        <div class="popup-message">
-                            <strong>Success!</strong>
-                            <p>Used ${useQuantity} ${item.unit} of ${item.name}</p>
-                        </div>
-                    `;
+                    // Show success notification
+                    showToast(`Used ${useQuantity} ${currentItem.unit} of ${currentItem.name}`, 'success');
                     
-                    document.body.appendChild(popup);
-                    
-                    // Show the popup (for animation)
-                    setTimeout(() => {
-                        popup.classList.add('show');
-                    }, 10);
-                    
-                    // Auto remove after 2 seconds
-                    setTimeout(() => {
-                        popup.classList.remove('show');
-                        setTimeout(() => {
-                            if (document.body.contains(popup)) {
-                                document.body.removeChild(popup);
-                            }
-                        }, 300);
-                    }, 2000);
                 } catch (error) {
-                    // Show error popup if something goes wrong
-                    const popup = document.createElement('div');
-                    popup.className = 'popup-notification error';
-                    popup.innerHTML = `
-                        <div class="popup-icon">✕</div>
-                        <div class="popup-message">
-                            <strong>Error!</strong>
-                            <p>Could not complete the operation. Please try again.</p>
-                        </div>
-                    `;
-                    
-                    document.body.appendChild(popup);
-                    
-                    // Show the popup (for animation)
-                    setTimeout(() => {
-                        popup.classList.add('show');
-                    }, 10);
-                    
-                    // Auto remove after 3 seconds
-                    setTimeout(() => {
-                        popup.classList.remove('show');
-                        setTimeout(() => {
-                            if (document.body.contains(popup)) {
-                                document.body.removeChild(popup);
-                            }
-                        }, 300);
-                    }, 3000);
-                    
                     console.error('Error processing item use:', error);
+                    
+                    // Close confirmation dialog
+                    document.body.removeChild(confirmDialog);
+                    
+                    // Show error message in the form
+                    errorContainer.textContent = error.message || 'An error occurred. Please try again.';
+                    errorContainer.style.display = 'block';
                 }
             });
-        } else {
-            // Show error if validation fails
-            let errorMessage = '';
-            
-            if (useQuantity <= 0) {
-                errorMessage = 'Please enter a quantity greater than zero.';
-            } else if (useQuantity > item.quantity) {
-                errorMessage = `Only ${item.quantity} ${item.unit} available in stock.`;
-            } else {
-                errorMessage = 'Invalid input. Please check your entries.';
-            }
-            
-            // Show error message in the form
-            let errorElement = document.getElementById('use-error-message');
-            
-            if (!errorElement) {
-                errorElement = document.createElement('div');
-                errorElement.id = 'use-error-message';
-                errorElement.className = 'error-message';
-                errorElement.style.color = 'red';
-                errorElement.style.marginTop = '10px';
-                this.appendChild(errorElement);
-            }
-            
-            errorElement.textContent = errorMessage;
-        }
-    });
+        });
+    } catch (error) {
+        console.error('Error showing use item modal:', error);
+        showToast('Could not open use item form. Please try again.', 'error');
+    }
 }
 
 // Show Order Item Modal function
 function showOrderItemModal(item) {
-    // Calculate suggested order quantity
-    const suggestedQuantity = Math.max(item.minQuantity * 2 - item.quantity, 1);
-    
-    // Create modal container
-    const modalContainer = document.createElement('div');
-    modalContainer.className = 'modal-container';
-    
-    // Create modal content
-    modalContainer.innerHTML = `
-        <div class="modal">
-            <div class="modal-header">
-                <h3>Order Item: ${item.name}</h3>
-                <button class="close-modal">&times;</button>
+    try {
+        // Ensure we're working with the most up-to-date item data
+        const itemIndex = inventoryData.items.findIndex(i => i.id === item.id);
+        if (itemIndex === -1) {
+            showToast('Item not found', 'error');
+            return;
+        }
+        
+        // Get the fresh item data
+        const freshItem = inventoryData.items[itemIndex];
+        
+        // Calculate suggested order quantity
+        const suggestedQuantity = Math.max(freshItem.minQuantity * 2 - freshItem.quantity, 1);
+        
+        // Create modal container
+        const modalContainer = document.createElement('div');
+        modalContainer.className = 'modal-container';
+        
+        // Create modal content
+        modalContainer.innerHTML = `
+            <div class="modal">
+                <div class="modal-header">
+                    <h3>Order Item: ${freshItem.name}</h3>
+                    <button class="close-modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <form id="order-item-form">
+                        <p>Current stock: <strong>${freshItem.quantity} ${freshItem.unit}</strong></p>
+                        <p>Minimum quantity: <strong>${freshItem.minQuantity} ${freshItem.unit}</strong></p>
+                        
+                        <div class="form-group">
+                            <label for="order-quantity">Quantity to Order</label>
+                            <input type="number" id="order-quantity" min="1" value="${suggestedQuantity}" required>
+                            <small>Suggested order: ${suggestedQuantity} ${freshItem.unit}</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="supplier">Supplier</label>
+                            <input type="text" id="supplier" placeholder="Enter supplier name">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="order-notes">Notes (Optional)</label>
+                            <textarea id="order-notes" rows="2"></textarea>
+                        </div>
+                        
+                        <div id="order-error-container" class="error-message" style="display: none; color: red; margin: 10px 0; text-align: center;"></div>
+                        
+                        <div class="form-actions">
+                            <button type="button" class="btn secondary close-modal">Cancel</button>
+                            <button type="submit" class="btn primary">Place Order</button>
+                        </div>
+                    </form>
+                </div>
             </div>
-            <div class="modal-body">
-                <form id="order-item-form">
-                    <p>Current stock: ${item.quantity} ${item.unit}</p>
-                    <p>Minimum quantity: ${item.minQuantity} ${item.unit}</p>
-                    
-                    <div class="form-group">
-                        <label for="order-quantity">Quantity to Order</label>
-                        <input type="number" id="order-quantity" min="1" value="${suggestedQuantity}" required>
-                        <small>Suggested order: ${suggestedQuantity} ${item.unit}</small>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="supplier">Supplier</label>
-                        <input type="text" id="supplier" placeholder="Enter supplier name">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="order-notes">Notes (Optional)</label>
-                        <textarea id="order-notes" rows="2"></textarea>
-                    </div>
-                    
-                    <input type="hidden" id="order-item-id" value="${item.id}">
-                    
-                    <div class="form-actions">
-                        <button type="button" class="btn secondary close-modal">Cancel</button>
-                        <button type="submit" class="btn primary">Place Order</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    `;
-    
-    // Add modal to the page
-    document.body.appendChild(modalContainer);
-    
-    // Add event listeners
-    modalContainer.querySelector('.close-modal').addEventListener('click', function() {
-        document.body.removeChild(modalContainer);
-    });
-    
-    modalContainer.querySelector('#order-item-form').addEventListener('submit', function(e) {
-        e.preventDefault();
+        `;
         
-        const itemId = parseInt(document.getElementById('order-item-id').value);
-        const orderQuantity = parseInt(document.getElementById('order-quantity').value);
-        const supplier = document.getElementById('supplier').value;
-        const notes = document.getElementById('order-notes').value;
+        // Add modal to the page
+        document.body.appendChild(modalContainer);
         
-        const item = inventoryData.items.find(i => i.id === itemId);
+        // Add event listeners for closing the modal
+        const closeButtons = modalContainer.querySelectorAll('.close-modal');
+        closeButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                document.body.removeChild(modalContainer);
+            });
+        });
         
-        if (item && orderQuantity > 0) {
-            // Show confirmation dialog
+        // Add event listener for form submission
+        const orderForm = modalContainer.querySelector('#order-item-form');
+        orderForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Clear any previous error messages
+            const errorContainer = document.getElementById('order-error-container');
+            errorContainer.style.display = 'none';
+            errorContainer.textContent = '';
+            
+            // Get form values
+            const orderQuantity = parseInt(document.getElementById('order-quantity').value);
+            const supplier = document.getElementById('supplier').value;
+            const notes = document.getElementById('order-notes').value;
+            
+            // Validate form input
+            if (isNaN(orderQuantity) || orderQuantity <= 0) {
+                errorContainer.textContent = 'Please enter a quantity greater than zero.';
+                errorContainer.style.display = 'block';
+                return;
+            }
+            
+            // Create confirmation dialog
             const confirmDialog = document.createElement('div');
             confirmDialog.className = 'confirmation-dialog';
             confirmDialog.innerHTML = `
                 <div class="confirmation-content">
                     <h3>Confirm Order</h3>
-                    <p>You are about to order <strong>${orderQuantity} ${item.unit}</strong> of <strong>${item.name}</strong>.</p>
+                    <p>You are about to order <strong>${orderQuantity} ${freshItem.unit}</strong> of <strong>${freshItem.name}</strong>.</p>
                     ${supplier ? `<p>Supplier: ${supplier}</p>` : ''}
                     ${notes ? `<p>Notes: ${notes}</p>` : ''}
                     <div class="confirmation-actions">
@@ -2198,111 +2228,55 @@ function showOrderItemModal(item) {
             
             // Handle confirm button
             confirmDialog.querySelector('.confirm-action').addEventListener('click', function() {
-                // Change to processing state
-                this.textContent = 'Processing...';
-                this.disabled = true;
-                
-                // Close both dialogs immediately
-                document.body.removeChild(confirmDialog);
-                document.body.removeChild(modalContainer);
-                
                 try {
+                    // Change to processing state
+                    this.textContent = 'Processing...';
+                    this.disabled = true;
+                    
+                    // Need to get the item again as it may have been updated
+                    const currentIndex = inventoryData.items.findIndex(i => i.id === freshItem.id);
+                    
+                    if (currentIndex === -1) {
+                        throw new Error('Item no longer exists in inventory');
+                    }
+                    
+                    const currentItem = {...inventoryData.items[currentIndex]};
+                    
                     // Log the order activity
                     const supplierText = supplier ? ` from ${supplier}` : '';
-                    const actionText = `Reordered (${orderQuantity} ${item.unit})${supplierText}${notes ? ` - Note: ${notes}` : ''}`;
-                    logActivity(item.name, actionText);
+                    const actionText = `Reordered (${orderQuantity} ${currentItem.unit})${supplierText}${notes ? ` - Note: ${notes}` : ''}`;
+                    logActivity(currentItem.name, actionText);
                     
-                    // Save data
+                    // Save data to localStorage
                     saveInventoryData();
+                    
+                    // Close dialogs first before UI updates to prevent visual glitches
+                    document.body.removeChild(confirmDialog);
+                    document.body.removeChild(modalContainer);
                     
                     // Update UI
                     renderInventoryTable();
                     updateDashboard();
                     
-                    // Show success notification popup
-                    const popup = document.createElement('div');
-                    popup.className = 'popup-notification success';
-                    popup.innerHTML = `
-                        <div class="popup-icon">✓</div>
-                        <div class="popup-message">
-                            <strong>Success!</strong>
-                            <p>Ordered ${orderQuantity} ${item.unit} of ${item.name}</p>
-                        </div>
-                    `;
+                    // Show success notification
+                    showToast(`Ordered ${orderQuantity} ${currentItem.unit} of ${currentItem.name}`, 'success');
                     
-                    document.body.appendChild(popup);
-                    
-                    // Show the popup (for animation)
-                    setTimeout(() => {
-                        popup.classList.add('show');
-                    }, 10);
-                    
-                    // Auto remove after 2 seconds
-                    setTimeout(() => {
-                        popup.classList.remove('show');
-                        setTimeout(() => {
-                            if (document.body.contains(popup)) {
-                                document.body.removeChild(popup);
-                            }
-                        }, 300);
-                    }, 2000);
                 } catch (error) {
-                    // Show error popup if something goes wrong
-                    const popup = document.createElement('div');
-                    popup.className = 'popup-notification error';
-                    popup.innerHTML = `
-                        <div class="popup-icon">✕</div>
-                        <div class="popup-message">
-                            <strong>Error!</strong>
-                            <p>Could not complete the order. Please try again.</p>
-                        </div>
-                    `;
-                    
-                    document.body.appendChild(popup);
-                    
-                    // Show the popup (for animation)
-                    setTimeout(() => {
-                        popup.classList.add('show');
-                    }, 10);
-                    
-                    // Auto remove after 3 seconds
-                    setTimeout(() => {
-                        popup.classList.remove('show');
-                        setTimeout(() => {
-                            if (document.body.contains(popup)) {
-                                document.body.removeChild(popup);
-                            }
-                        }, 300);
-                    }, 3000);
-                    
                     console.error('Error processing order:', error);
+                    
+                    // Close confirmation dialog
+                    document.body.removeChild(confirmDialog);
+                    
+                    // Show error message in the form
+                    errorContainer.textContent = error.message || 'An error occurred. Please try again.';
+                    errorContainer.style.display = 'block';
                 }
             });
-        } else {
-            // Show error if validation fails
-            let errorMessage = '';
-            
-            if (orderQuantity <= 0) {
-                errorMessage = 'Please enter a quantity greater than zero.';
-            } else {
-                errorMessage = 'Invalid input. Please check your entries.';
-            }
-            
-            // Show error message in the form
-            let errorElement = document.getElementById('order-error-message');
-            
-            if (!errorElement) {
-                errorElement = document.createElement('div');
-                errorElement.id = 'order-error-message';
-                errorElement.className = 'error-message';
-                errorElement.style.color = 'red';
-                errorElement.style.marginTop = '10px';
-                this.appendChild(errorElement);
-            }
-            
-            errorElement.textContent = errorMessage;
-        }
-    });
+        });
+    } catch (error) {
+        console.error('Error showing order item modal:', error);
+        showToast('Could not open order form. Please try again.', 'error');
+    }
 }
 
 // Show toast message - improved version with popup notifications
