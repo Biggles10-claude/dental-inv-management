@@ -12,7 +12,8 @@ const defaultInventoryData = {
             expiry: "08/2025",
             price: 28.50,
             location: "Cabinet A-3",
-            description: "Light-cured composite resin for dental restorations"
+            description: "Light-cured composite resin for dental restorations",
+            lastUpdated: "2025-02-25T10:30:00"
         },
         {
             id: 2,
@@ -25,7 +26,8 @@ const defaultInventoryData = {
             expiry: "05/2025",
             price: 42.75,
             location: "Medication Cabinet",
-            description: "Local anesthetic for dental procedures"
+            description: "Local anesthetic for dental procedures",
+            lastUpdated: "2025-02-24T14:15:00"
         },
         {
             id: 3,
@@ -38,7 +40,8 @@ const defaultInventoryData = {
             expiry: "12/2026",
             price: 0.15,
             location: "Supply Room B",
-            description: "Disposable nitrile examination gloves"
+            description: "Disposable nitrile examination gloves",
+            lastUpdated: "2025-02-23T09:45:00"
         },
         {
             id: 4,
@@ -51,7 +54,8 @@ const defaultInventoryData = {
             expiry: "N/A",
             price: 3.25,
             location: "Supply Room A",
-            description: "Waxed dental floss for patient use"
+            description: "Waxed dental floss for patient use",
+            lastUpdated: "2025-02-22T16:20:00"
         },
         {
             id: 5,
@@ -64,7 +68,8 @@ const defaultInventoryData = {
             expiry: "N/A",
             price: 450.00,
             location: "Equipment Room",
-            description: "High-speed dental handpiece for restorative procedures"
+            description: "High-speed dental handpiece for restorative procedures",
+            lastUpdated: "2025-02-21T11:10:00"
         }
     ],
     categories: ["consumables", "instruments", "equipment", "medications"],
@@ -73,47 +78,72 @@ const defaultInventoryData = {
             date: "02/25/2025",
             item: "Composite Filling Material",
             action: "Stock Reduced (5 units)",
-            user: "Dr. Smith"
+            user: "Dr. Smith",
+            timestamp: "2025-02-25T10:30:00"
         },
         {
             date: "02/24/2025",
             item: "Dental Anesthetic",
             action: "Reordered (20 units)",
-            user: "Office Manager"
+            user: "Office Manager",
+            timestamp: "2025-02-24T14:15:00"
         },
         {
             date: "02/23/2025",
             item: "Examination Gloves",
             action: "Added (500 units)",
-            user: "Inventory Staff"
+            user: "Inventory Staff",
+            timestamp: "2025-02-23T09:45:00"
         }
     ],
     users: [
         {
+            id: 1,
             name: "Dr. Smith",
             email: "dr.smith@dentalclinic.com",
             role: "Admin",
-            status: "Active"
+            status: "Active",
+            password: "hashed_password_1", // In a real app, these would be properly hashed
+            lastLogin: "2025-02-25T08:15:00"
         },
         {
+            id: 2,
             name: "Office Manager",
             email: "manager@dentalclinic.com",
             role: "Manager",
-            status: "Active"
+            status: "Active",
+            password: "hashed_password_2",
+            lastLogin: "2025-02-24T09:30:00"
         },
         {
+            id: 3,
             name: "Inventory Staff",
             email: "inventory@dentalclinic.com",
             role: "Staff",
-            status: "Active"
+            status: "Active",
+            password: "hashed_password_3",
+            lastLogin: "2025-02-23T12:45:00"
         }
-    ]
+    ],
+    appSettings: {
+        theme: "light",
+        language: "en",
+        notifications: {
+            lowStock: true,
+            expiry: true,
+            activitySummary: false,
+            emailAlerts: "alerts@dentalclinic.com"
+        },
+        backupFrequency: "daily",
+        lastBackup: null
+    },
+    currentUser: null
 };
 
 // Load data from localStorage or use default
 let inventoryData = loadInventoryData();
 
-// Functions for data persistence
+// Database-like functions for data persistence
 function saveInventoryData() {
     localStorage.setItem('dentalInventoryData', JSON.stringify(inventoryData));
 }
@@ -121,6 +151,133 @@ function saveInventoryData() {
 function loadInventoryData() {
     const storedData = localStorage.getItem('dentalInventoryData');
     return storedData ? JSON.parse(storedData) : {...defaultInventoryData};
+}
+
+// Authentication functions
+function loginUser(email, password) {
+    try {
+        // Find user by email
+        const user = inventoryData.users.find(u => u.email.toLowerCase() === email.toLowerCase());
+        
+        // Check if user exists and password matches
+        if (!user) {
+            throw new Error('User not found');
+        }
+        
+        // In a real app, we would use proper password hashing and comparison
+        // For this demo, we're just doing a simple comparison
+        if (user.password !== password) {
+            throw new Error('Invalid password');
+        }
+        
+        // Check if user is active
+        if (user.status !== 'Active') {
+            throw new Error('Account is inactive');
+        }
+        
+        // Update last login time
+        user.lastLogin = new Date().toISOString();
+        
+        // Set current user
+        inventoryData.currentUser = {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role
+        };
+        
+        // Save updated data
+        saveInventoryData();
+        
+        // Return user info (without sensitive data)
+        return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role
+        };
+    } catch (error) {
+        console.error('Login error:', error.message);
+        throw error;
+    }
+}
+
+function logoutUser() {
+    // Clear current user
+    inventoryData.currentUser = null;
+    saveInventoryData();
+}
+
+function isUserLoggedIn() {
+    return inventoryData.currentUser !== null;
+}
+
+function getCurrentUser() {
+    return inventoryData.currentUser;
+}
+
+function checkPermission(requiredRole) {
+    if (!isUserLoggedIn()) {
+        return false;
+    }
+    
+    const user = getCurrentUser();
+    
+    // Simple role-based permissions
+    // Admin can do everything
+    if (user.role === 'Admin') {
+        return true;
+    }
+    
+    // Manager can do everything except user management
+    if (user.role === 'Manager' && requiredRole !== 'Admin') {
+        return true;
+    }
+    
+    // Staff has limited permissions
+    if (user.role === 'Staff' && requiredRole === 'Staff') {
+        return true;
+    }
+    
+    return false;
+}
+
+function registerUser(userData) {
+    try {
+        // Check if email already exists
+        if (inventoryData.users.some(u => u.email.toLowerCase() === userData.email.toLowerCase())) {
+            throw new Error('Email already registered');
+        }
+        
+        // Create new user
+        const newUser = {
+            id: generateUserId(),
+            name: userData.name,
+            email: userData.email,
+            password: userData.password, // In a real app, this would be hashed
+            role: userData.role || 'Staff', // Default role
+            status: 'Active',
+            lastLogin: null
+        };
+        
+        // Add to users array
+        inventoryData.users.push(newUser);
+        
+        // Save data
+        saveInventoryData();
+        
+        // Return user info (without password)
+        const { password, ...userInfo } = newUser;
+        return userInfo;
+    } catch (error) {
+        console.error('Registration error:', error.message);
+        throw error;
+    }
+}
+
+function generateUserId() {
+    const users = inventoryData.users;
+    return users.length > 0 ? Math.max(...users.map(user => user.id)) + 1 : 1;
 }
 
 // Generate unique IDs for new items
@@ -138,21 +295,165 @@ function updateItemStatus(item) {
     } else {
         item.status = 'in-stock';
     }
+    
+    // Update the lastUpdated timestamp
+    item.lastUpdated = new Date().toISOString();
+    
     return item;
 }
 
 // Add activity log entry
-function logActivity(itemName, action, user = 'Admin User') {
+function logActivity(itemName, action, user = getCurrentUser()?.name || 'System') {
+    const now = new Date();
     const activity = {
-        date: new Date().toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}),
+        date: now.toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}),
         item: itemName,
         action: action,
-        user: user
+        user: user,
+        timestamp: now.toISOString()
     };
     
     inventoryData.activities.unshift(activity);
     saveInventoryData();
     return activity;
+}
+
+// Database operations for items
+function getItems(filters = {}) {
+    try {
+        let filteredItems = [...inventoryData.items];
+        
+        // Apply filters
+        if (filters.name) {
+            const searchTerm = filters.name.toLowerCase();
+            filteredItems = filteredItems.filter(item => 
+                item.name.toLowerCase().includes(searchTerm)
+            );
+        }
+        
+        if (filters.category) {
+            filteredItems = filteredItems.filter(item => 
+                item.category === filters.category
+            );
+        }
+        
+        if (filters.status) {
+            filteredItems = filteredItems.filter(item => 
+                item.status === filters.status
+            );
+        }
+        
+        // Sort items if needed
+        if (filters.sortBy) {
+            const sortField = filters.sortBy;
+            const sortDirection = filters.sortDirection === 'desc' ? -1 : 1;
+            
+            filteredItems.sort((a, b) => {
+                if (a[sortField] < b[sortField]) return -1 * sortDirection;
+                if (a[sortField] > b[sortField]) return 1 * sortDirection;
+                return 0;
+            });
+        }
+        
+        return filteredItems;
+    } catch (error) {
+        console.error('Error fetching items:', error);
+        return [];
+    }
+}
+
+function getItemById(id) {
+    return inventoryData.items.find(item => item.id === id);
+}
+
+function updateItem(id, itemData) {
+    try {
+        // Find item index
+        const index = inventoryData.items.findIndex(item => item.id === id);
+        
+        if (index === -1) {
+            throw new Error('Item not found');
+        }
+        
+        // Update item
+        const updatedItem = {
+            ...inventoryData.items[index],
+            ...itemData,
+            lastUpdated: new Date().toISOString()
+        };
+        
+        // Update status based on quantity
+        updateItemStatus(updatedItem);
+        
+        // Replace in array
+        inventoryData.items[index] = updatedItem;
+        
+        // Save data
+        saveInventoryData();
+        
+        return updatedItem;
+    } catch (error) {
+        console.error('Error updating item:', error);
+        throw error;
+    }
+}
+
+function getAppSettings() {
+    return {...inventoryData.appSettings};
+}
+
+function updateAppSettings(settings) {
+    try {
+        // Update settings
+        inventoryData.appSettings = {
+            ...inventoryData.appSettings,
+            ...settings
+        };
+        
+        // Save data
+        saveInventoryData();
+        
+        return {...inventoryData.appSettings};
+    } catch (error) {
+        console.error('Error updating settings:', error);
+        throw error;
+    }
+}
+
+function backupData() {
+    try {
+        // In a real app, this would send data to a server
+        // For this demo, we'll just create a JSON string
+        const backup = JSON.stringify(inventoryData);
+        
+        // Update last backup time
+        inventoryData.appSettings.lastBackup = new Date().toISOString();
+        saveInventoryData();
+        
+        // In a real app, we would return success/failure
+        // For demo, we'll create a download link
+        const blob = new Blob([backup], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `dental-inventory-backup-${new Date().toISOString().split('T')[0]}.json`;
+        
+        // Append to body, click and remove
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        return {
+            success: true,
+            timestamp: inventoryData.appSettings.lastBackup
+        };
+    } catch (error) {
+        console.error('Backup error:', error);
+        return {
+            success: false,
+            error: error.message
+        };
+    }
 }
 
 // Export inventory to CSV
@@ -196,6 +497,335 @@ function exportToCSV() {
 
 // Wait for the DOM to be fully loaded
 document.addEventListener('DOMContentLoaded', () => {
+    // Authentication handling
+    const loginScreen = document.getElementById('login-screen');
+    const appContainer = document.getElementById('app-container');
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
+    const switchToRegister = document.getElementById('switch-to-register');
+    const switchToLogin = document.getElementById('switch-to-login');
+    const logoutButton = document.getElementById('logout-button');
+    const currentUserName = document.getElementById('current-user-name');
+    const userMenu = document.getElementById('user-menu');
+    const toggleTheme = document.getElementById('toggle-theme');
+    const backupButton = document.getElementById('backup-data');
+    const loadingOverlay = document.getElementById('loading-overlay');
+    
+    // Check if the user is already logged in
+    function checkLoginStatus() {
+        if (isUserLoggedIn()) {
+            // Update UI with user info
+            const user = getCurrentUser();
+            if (currentUserName) {
+                currentUserName.textContent = user.name;
+            }
+            
+            // Show app, hide login
+            loginScreen.style.display = 'none';
+            appContainer.style.display = 'block';
+            
+            // Initialize app components
+            renderInventoryTable();
+            renderCategories();
+            updateDashboard();
+            
+            // Apply theme if saved
+            const settings = getAppSettings();
+            if (settings.theme === 'dark') {
+                document.body.classList.add('dark-theme');
+                if (toggleTheme) {
+                    toggleTheme.textContent = 'Light Mode';
+                }
+            }
+        } else {
+            // Show login, hide app
+            loginScreen.style.display = 'flex';
+            appContainer.style.display = 'none';
+        }
+    }
+    
+    // Handle login form submission
+    if (loginForm) {
+        loginForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            const rememberMe = document.getElementById('remember-me').checked;
+            const loginError = document.getElementById('login-error');
+            
+            // Show loading
+            showLoading();
+            
+            try {
+                // Attempt login
+                const user = loginUser(email, password);
+                
+                // If remember me is checked, store in localStorage
+                if (rememberMe) {
+                    localStorage.setItem('rememberedUser', email);
+                } else {
+                    localStorage.removeItem('rememberedUser');
+                }
+                
+                // Hide login screen, show app
+                loginScreen.style.display = 'none';
+                appContainer.style.display = 'block';
+                
+                // Update UI with user info
+                if (currentUserName) {
+                    currentUserName.textContent = user.name;
+                }
+                
+                // Initialize app components
+                renderInventoryTable();
+                renderCategories();
+                updateDashboard();
+                
+                // Show success message
+                showToast(`Welcome, ${user.name}!`, 'success');
+                
+            } catch (error) {
+                // Show error message
+                if (loginError) {
+                    loginError.textContent = error.message;
+                    loginError.style.display = 'block';
+                }
+                console.error('Login failed:', error);
+            } finally {
+                // Hide loading
+                hideLoading();
+            }
+        });
+    }
+    
+    // Handle register form submission
+    if (registerForm) {
+        registerForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const name = document.getElementById('register-name').value;
+            const email = document.getElementById('register-email').value;
+            const password = document.getElementById('register-password').value;
+            const confirmPassword = document.getElementById('register-confirm-password').value;
+            const registerError = document.getElementById('register-error');
+            
+            // Basic validation
+            if (password !== confirmPassword) {
+                registerError.textContent = 'Passwords do not match';
+                registerError.style.display = 'block';
+                return;
+            }
+            
+            // Show loading
+            showLoading();
+            
+            try {
+                // Register user
+                const userData = {
+                    name,
+                    email,
+                    password,
+                    role: 'Staff' // Default role for new users
+                };
+                
+                const newUser = registerUser(userData);
+                
+                // Switch to login form
+                registerForm.style.display = 'none';
+                loginForm.style.display = 'block';
+                
+                // Pre-fill email
+                document.getElementById('login-email').value = email;
+                
+                // Show success message
+                showToast('Registration successful! Please sign in.', 'success');
+                
+            } catch (error) {
+                // Show error message
+                if (registerError) {
+                    registerError.textContent = error.message;
+                    registerError.style.display = 'block';
+                }
+                console.error('Registration failed:', error);
+            } finally {
+                // Hide loading
+                hideLoading();
+            }
+        });
+    }
+    
+    // Switch between login and register forms
+    if (switchToRegister) {
+        switchToRegister.addEventListener('click', function(e) {
+            e.preventDefault();
+            loginForm.style.display = 'none';
+            registerForm.style.display = 'block';
+        });
+    }
+    
+    if (switchToLogin) {
+        switchToLogin.addEventListener('click', function(e) {
+            e.preventDefault();
+            registerForm.style.display = 'none';
+            loginForm.style.display = 'block';
+        });
+    }
+    
+    // Handle logout
+    if (logoutButton) {
+        logoutButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // Confirm logout
+            const confirmDialog = document.createElement('div');
+            confirmDialog.className = 'confirmation-dialog';
+            confirmDialog.innerHTML = `
+                <div class="confirmation-content">
+                    <h3>Confirm Logout</h3>
+                    <p>Are you sure you want to log out?</p>
+                    <div class="confirmation-actions">
+                        <button class="btn secondary cancel-confirmation">Cancel</button>
+                        <button class="btn primary confirm-action">Logout</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(confirmDialog);
+            
+            // Handle cancel button
+            confirmDialog.querySelector('.cancel-confirmation').addEventListener('click', function() {
+                document.body.removeChild(confirmDialog);
+            });
+            
+            // Handle confirm button
+            confirmDialog.querySelector('.confirm-action').addEventListener('click', function() {
+                document.body.removeChild(confirmDialog);
+                
+                // Show loading
+                showLoading();
+                
+                // Logout the user
+                logoutUser();
+                
+                // Hide app, show login
+                appContainer.style.display = 'none';
+                loginScreen.style.display = 'flex';
+                
+                // Hide loading
+                hideLoading();
+                
+                // Show success message
+                showToast('You have been logged out.', 'success');
+            });
+        });
+    }
+    
+    // Toggle theme
+    if (toggleTheme) {
+        toggleTheme.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            const isDarkTheme = document.body.classList.contains('dark-theme');
+            
+            if (isDarkTheme) {
+                // Switch to light theme
+                document.body.classList.remove('dark-theme');
+                this.textContent = 'Dark Mode';
+                
+                // Update settings
+                updateAppSettings({ theme: 'light' });
+            } else {
+                // Switch to dark theme
+                document.body.classList.add('dark-theme');
+                this.textContent = 'Light Mode';
+                
+                // Update settings
+                updateAppSettings({ theme: 'dark' });
+            }
+            
+            // Show confirmation
+            showToast(`Switched to ${isDarkTheme ? 'light' : 'dark'} mode`, 'success');
+        });
+    }
+    
+    // Handle backup
+    if (backupButton) {
+        backupButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // Show loading
+            showLoading();
+            
+            try {
+                // Perform backup
+                const result = backupData();
+                
+                if (result.success) {
+                    // Show success message
+                    showToast('Backup created successfully', 'success');
+                } else {
+                    // Show error message
+                    showToast(`Backup failed: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                console.error('Backup error:', error);
+                showToast('Failed to create backup', 'error');
+            } finally {
+                // Hide loading after a short delay to ensure download starts
+                setTimeout(hideLoading, 1000);
+            }
+        });
+    }
+    
+    // Handle mobile user menu
+    if (userMenu) {
+        userMenu.addEventListener('click', function(e) {
+            if (window.innerWidth <= 768) {
+                e.preventDefault();
+                
+                // Create backdrop for mobile
+                if (!document.querySelector('.dropdown-backdrop')) {
+                    const backdrop = document.createElement('div');
+                    backdrop.className = 'dropdown-backdrop';
+                    document.body.appendChild(backdrop);
+                    
+                    backdrop.addEventListener('click', function() {
+                        document.querySelector('.user-dropdown').classList.remove('active');
+                        this.remove();
+                    });
+                }
+                
+                // Toggle active class for mobile dropdown
+                const dropdown = this.closest('.user-dropdown');
+                dropdown.classList.toggle('active');
+            }
+        });
+    }
+    
+    // Loading overlay helpers
+    function showLoading() {
+        if (loadingOverlay) {
+            loadingOverlay.style.display = 'flex';
+        }
+    }
+    
+    function hideLoading() {
+        if (loadingOverlay) {
+            loadingOverlay.style.display = 'none';
+        }
+    }
+    
+    // Auto-login if remembered
+    const rememberedUser = localStorage.getItem('rememberedUser');
+    if (rememberedUser && loginForm) {
+        document.getElementById('login-email').value = rememberedUser;
+        document.getElementById('remember-me').checked = true;
+    }
+    
+    // Check login status
+    checkLoginStatus();
+    
     // Navigation and Section Handling
     const navLinks = document.querySelectorAll('nav a');
     const sections = document.querySelectorAll('main > section');
@@ -381,9 +1011,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${item.category.charAt(0).toUpperCase() + item.category.slice(1)}</td>
                 <td>${item.quantity}</td>
                 <td>${item.unit}</td>
-                <td class="status ${item.status}">${item.status.replace('-', ' ').replace(
+                <td><span class="status ${item.status}">${item.status.replace('-', ' ').replace(
                     /\b\w/g, l => l.toUpperCase()
-                )}</td>
+                )}</span></td>
                 <td>${item.expiry}</td>
                 <td>
                     <button class="btn-small edit-item" data-id="${item.id}">Edit</button>
@@ -619,13 +1249,90 @@ document.addEventListener('DOMContentLoaded', () => {
                                 break;
                                 
                             case 'Consumption Trends':
+                                // Process activity data to find consumption patterns
+                                const usageActivities = inventoryData.activities.filter(activity => 
+                                    activity.action.includes('Stock Reduced') || activity.action.includes('Used')
+                                );
+                                
+                                // Group activities by item
+                                const usageByItem = {};
+                                usageActivities.forEach(activity => {
+                                    if (!usageByItem[activity.item]) {
+                                        usageByItem[activity.item] = [];
+                                    }
+                                    
+                                    // Extract quantity from action text
+                                    const quantityMatch = activity.action.match(/\((\d+)/);
+                                    const quantity = quantityMatch ? parseInt(quantityMatch[1]) : 1;
+                                    
+                                    usageByItem[activity.item].push({
+                                        date: activity.date,
+                                        quantity: quantity
+                                    });
+                                });
+                                
+                                // Calculate total usage for each item
+                                const totalUsageByItem = Object.keys(usageByItem).map(item => {
+                                    const totalUsage = usageByItem[item].reduce((sum, usage) => sum + usage.quantity, 0);
+                                    return { item, totalUsage };
+                                }).sort((a, b) => b.totalUsage - a.totalUsage);
+                                
                                 reportContent = `
                                     <p>Report generated on ${new Date().toLocaleDateString()}</p>
-                                    <p>This report would show consumption patterns over time.</p>
-                                    <div style="height: 200px; background-color: #f5f5f5; display: flex; justify-content: center; align-items: center;">
-                                        [Consumption Chart Would Appear Here]
-                                    </div>
-                                    <p>In a real application, this would include charts and graphs showing usage trends.</p>
+                                    <h4>Usage Summary</h4>
+                                    ${usageActivities.length > 0 ? `
+                                        <p>Total usage activities: ${usageActivities.length}</p>
+                                        
+                                        <h4>Usage by Item</h4>
+                                        <table>
+                                            <thead>
+                                                <tr>
+                                                    <th>Item</th>
+                                                    <th>Total Usage</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                ${totalUsageByItem.map(item => `
+                                                    <tr>
+                                                        <td>${item.item}</td>
+                                                        <td>${item.totalUsage} units</td>
+                                                    </tr>
+                                                `).join('')}
+                                            </tbody>
+                                        </table>
+                                        
+                                        <h4>Recent Usage Activity</h4>
+                                        <table>
+                                            <thead>
+                                                <tr>
+                                                    <th>Date</th>
+                                                    <th>Item</th>
+                                                    <th>Quantity</th>
+                                                    <th>User</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                ${usageActivities.slice(0, 10).map(activity => {
+                                                    const quantityMatch = activity.action.match(/\((\d+)/);
+                                                    const quantity = quantityMatch ? quantityMatch[1] : '1';
+                                                    
+                                                    return `
+                                                        <tr>
+                                                            <td>${activity.date}</td>
+                                                            <td>${activity.item}</td>
+                                                            <td>${quantity} units</td>
+                                                            <td>${activity.user}</td>
+                                                        </tr>
+                                                    `;
+                                                }).join('')}
+                                            </tbody>
+                                        </table>
+                                        
+                                        <div style="margin-top: 2rem;">
+                                            <p><strong>Note:</strong> In a production environment, this report would include charts 
+                                            and more detailed time-based analysis of consumption patterns.</p>
+                                        </div>
+                                    ` : '<p>No usage data available yet. Use items from inventory to generate consumption data.</p>'}
                                 `;
                                 break;
                                 
@@ -696,7 +1403,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                                     return `
                                                         <tr>
                                                             <td>${item.name}</td>
-                                                            <td class="status ${item.status}">${item.quantity} ${item.unit}</td>
+                                                            <td><span class="status ${item.status}">${item.quantity} ${item.unit}</span></td>
                                                             <td>${item.minQuantity} ${item.unit}</td>
                                                             <td>${suggestedOrder} ${item.unit}</td>
                                                         </tr>
@@ -1057,43 +1764,149 @@ function showEditItemModal(item) {
     modalContainer.querySelector('#edit-item-form').addEventListener('submit', function(e) {
         e.preventDefault();
         
+        // Validate inputs
+        const nameInput = document.getElementById('edit-item-name');
+        const quantityInput = document.getElementById('edit-item-quantity');
+        const unitInput = document.getElementById('edit-item-unit');
+        const minQuantityInput = document.getElementById('edit-item-min-quantity');
+        const priceInput = document.getElementById('edit-item-price');
+        
+        // Basic validation
+        if (!nameInput.value.trim()) {
+            showFormError(this, 'Item name is required');
+            return;
+        }
+        
+        if (isNaN(parseInt(quantityInput.value)) || parseInt(quantityInput.value) < 0) {
+            showFormError(this, 'Quantity must be a valid number');
+            return;
+        }
+        
+        if (!unitInput.value.trim()) {
+            showFormError(this, 'Unit is required');
+            return;
+        }
+        
         // Get the updated item data
         const updatedItem = {
             id: parseInt(document.getElementById('edit-item-id').value),
-            name: document.getElementById('edit-item-name').value,
+            name: nameInput.value.trim(),
             category: document.getElementById('edit-item-category').value,
-            quantity: parseInt(document.getElementById('edit-item-quantity').value),
-            unit: document.getElementById('edit-item-unit').value,
-            minQuantity: parseInt(document.getElementById('edit-item-min-quantity').value),
-            price: parseFloat(document.getElementById('edit-item-price').value),
+            quantity: parseInt(quantityInput.value),
+            unit: unitInput.value.trim(),
+            minQuantity: parseInt(minQuantityInput.value) || 0,
+            price: parseFloat(priceInput.value) || 0,
             expiry: document.getElementById('edit-item-expiry').value,
             location: document.getElementById('edit-item-location').value,
             description: document.getElementById('edit-item-description').value
         };
         
-        // Update item status
-        updatedItem.status = updateItemStatus(updatedItem).status;
+        // Show processing state in the form
+        const submitButton = this.querySelector('button[type="submit"]');
+        const originalButtonText = submitButton.textContent;
+        submitButton.textContent = 'Saving...';
+        submitButton.disabled = true;
         
-        // Find and update the item in the inventory
-        const index = inventoryData.items.findIndex(i => i.id === updatedItem.id);
-        if (index !== -1) {
-            inventoryData.items[index] = updatedItem;
+        // Close the modal immediately
+        document.body.removeChild(modalContainer);
+        
+        try {
+            // Update item status
+            updatedItem.status = updateItemStatus(updatedItem).status;
             
-            // Log the activity
-            logActivity(updatedItem.name, 'Item Updated');
+            // Find and update the item in the inventory
+            const index = inventoryData.items.findIndex(i => i.id === updatedItem.id);
+            if (index !== -1) {
+                inventoryData.items[index] = updatedItem;
+                
+                // Log the activity
+                logActivity(updatedItem.name, 'Item Updated');
+                
+                // Save data
+                saveInventoryData();
+                
+                // Update UI
+                renderInventoryTable();
+                updateDashboard();
+                
+                // Show success notification popup
+                const popup = document.createElement('div');
+                popup.className = 'popup-notification success';
+                popup.innerHTML = `
+                    <div class="popup-icon">✓</div>
+                    <div class="popup-message">
+                        <strong>Success!</strong>
+                        <p>${updatedItem.name} has been updated</p>
+                    </div>
+                `;
+                
+                document.body.appendChild(popup);
+                
+                // Show the popup (for animation)
+                setTimeout(() => {
+                    popup.classList.add('show');
+                }, 10);
+                
+                // Auto remove after 2 seconds
+                setTimeout(() => {
+                    popup.classList.remove('show');
+                    setTimeout(() => {
+                        if (document.body.contains(popup)) {
+                            document.body.removeChild(popup);
+                        }
+                    }, 300);
+                }, 2000);
+            }
+        } catch (error) {
+            // Show error popup if something goes wrong
+            const popup = document.createElement('div');
+            popup.className = 'popup-notification error';
+            popup.innerHTML = `
+                <div class="popup-icon">✕</div>
+                <div class="popup-message">
+                    <strong>Error!</strong>
+                    <p>Could not update the item. Please try again.</p>
+                </div>
+            `;
             
-            // Save data
-            saveInventoryData();
+            document.body.appendChild(popup);
             
-            // Update UI
-            renderInventoryTable();
-            updateDashboard();
+            // Show the popup (for animation)
+            setTimeout(() => {
+                popup.classList.add('show');
+            }, 10);
             
-            // Show success message and close modal
-            showToast(`${updatedItem.name} has been updated.`);
-            document.body.removeChild(modalContainer);
+            // Auto remove after 3 seconds
+            setTimeout(() => {
+                popup.classList.remove('show');
+                setTimeout(() => {
+                    if (document.body.contains(popup)) {
+                        document.body.removeChild(popup);
+                    }
+                }, 300);
+            }, 3000);
+            
+            console.error('Error updating item:', error);
         }
     });
+    
+    // Helper function to show form error
+    function showFormError(form, message) {
+        let errorElement = form.querySelector('.form-error-message');
+        
+        if (!errorElement) {
+            errorElement = document.createElement('div');
+            errorElement.className = 'form-error-message';
+            errorElement.style.color = 'red';
+            errorElement.style.marginTop = '10px';
+            errorElement.style.marginBottom = '10px';
+            errorElement.style.textAlign = 'center';
+            form.insertBefore(errorElement, form.querySelector('.form-actions'));
+        }
+        
+        errorElement.textContent = message;
+        errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
 }
 
 // Show Use Item Modal function
@@ -1152,26 +1965,143 @@ function showUseItemModal(item) {
         const item = inventoryData.items.find(i => i.id === itemId);
         
         if (item && useQuantity > 0 && useQuantity <= item.quantity) {
-            // Reduce the quantity
-            item.quantity -= useQuantity;
+            // Show confirmation dialog
+            const confirmDialog = document.createElement('div');
+            confirmDialog.className = 'confirmation-dialog';
+            confirmDialog.innerHTML = `
+                <div class="confirmation-content">
+                    <h3>Confirm Usage</h3>
+                    <p>You are about to use <strong>${useQuantity} ${item.unit}</strong> of <strong>${item.name}</strong>.</p>
+                    <p>Current stock: ${item.quantity} ${item.unit}</p>
+                    <p>Stock after use: ${item.quantity - useQuantity} ${item.unit}</p>
+                    ${notes ? `<p>Notes: ${notes}</p>` : ''}
+                    <div class="confirmation-actions">
+                        <button class="btn secondary cancel-confirmation">Cancel</button>
+                        <button class="btn primary confirm-action">Confirm</button>
+                    </div>
+                </div>
+            `;
             
-            // Update status
-            updateItemStatus(item);
+            document.body.appendChild(confirmDialog);
             
-            // Log the activity
-            const actionText = `Stock Reduced (${useQuantity} ${item.unit})${notes ? ` - Note: ${notes}` : ''}`;
-            logActivity(item.name, actionText);
+            // Handle cancel button
+            confirmDialog.querySelector('.cancel-confirmation').addEventListener('click', function() {
+                document.body.removeChild(confirmDialog);
+            });
             
-            // Save data
-            saveInventoryData();
+            // Handle confirm button
+            confirmDialog.querySelector('.confirm-action').addEventListener('click', function() {
+                // Change to processing state
+                this.textContent = 'Processing...';
+                this.disabled = true;
+                
+                // Close both dialogs immediately
+                document.body.removeChild(confirmDialog);
+                document.body.removeChild(modalContainer);
+                
+                // Perform the operation
+                try {
+                    // Reduce the quantity
+                    item.quantity -= useQuantity;
+                    
+                    // Update status
+                    updateItemStatus(item);
+                    
+                    // Log the activity
+                    const actionText = `Stock Reduced (${useQuantity} ${item.unit})${notes ? ` - Note: ${notes}` : ''}`;
+                    logActivity(item.name, actionText);
+                    
+                    // Save data
+                    saveInventoryData();
+                    
+                    // Update UI
+                    renderInventoryTable();
+                    updateDashboard();
+                    
+                    // Show compact success notification popup
+                    const popup = document.createElement('div');
+                    popup.className = 'popup-notification success';
+                    popup.innerHTML = `
+                        <div class="popup-icon">✓</div>
+                        <div class="popup-message">
+                            <strong>Success!</strong>
+                            <p>Used ${useQuantity} ${item.unit} of ${item.name}</p>
+                        </div>
+                    `;
+                    
+                    document.body.appendChild(popup);
+                    
+                    // Show the popup (for animation)
+                    setTimeout(() => {
+                        popup.classList.add('show');
+                    }, 10);
+                    
+                    // Auto remove after 2 seconds
+                    setTimeout(() => {
+                        popup.classList.remove('show');
+                        setTimeout(() => {
+                            if (document.body.contains(popup)) {
+                                document.body.removeChild(popup);
+                            }
+                        }, 300);
+                    }, 2000);
+                } catch (error) {
+                    // Show error popup if something goes wrong
+                    const popup = document.createElement('div');
+                    popup.className = 'popup-notification error';
+                    popup.innerHTML = `
+                        <div class="popup-icon">✕</div>
+                        <div class="popup-message">
+                            <strong>Error!</strong>
+                            <p>Could not complete the operation. Please try again.</p>
+                        </div>
+                    `;
+                    
+                    document.body.appendChild(popup);
+                    
+                    // Show the popup (for animation)
+                    setTimeout(() => {
+                        popup.classList.add('show');
+                    }, 10);
+                    
+                    // Auto remove after 3 seconds
+                    setTimeout(() => {
+                        popup.classList.remove('show');
+                        setTimeout(() => {
+                            if (document.body.contains(popup)) {
+                                document.body.removeChild(popup);
+                            }
+                        }, 300);
+                    }, 3000);
+                    
+                    console.error('Error processing item use:', error);
+                }
+            });
+        } else {
+            // Show error if validation fails
+            let errorMessage = '';
             
-            // Update UI
-            renderInventoryTable();
-            updateDashboard();
+            if (useQuantity <= 0) {
+                errorMessage = 'Please enter a quantity greater than zero.';
+            } else if (useQuantity > item.quantity) {
+                errorMessage = `Only ${item.quantity} ${item.unit} available in stock.`;
+            } else {
+                errorMessage = 'Invalid input. Please check your entries.';
+            }
             
-            // Show success message and close modal
-            showToast(`Used ${useQuantity} ${item.unit} of ${item.name}.`);
-            document.body.removeChild(modalContainer);
+            // Show error message in the form
+            let errorElement = document.getElementById('use-error-message');
+            
+            if (!errorElement) {
+                errorElement = document.createElement('div');
+                errorElement.id = 'use-error-message';
+                errorElement.className = 'error-message';
+                errorElement.style.color = 'red';
+                errorElement.style.marginTop = '10px';
+                this.appendChild(errorElement);
+            }
+            
+            errorElement.textContent = errorMessage;
         }
     });
 }
@@ -1243,43 +2173,173 @@ function showOrderItemModal(item) {
         const item = inventoryData.items.find(i => i.id === itemId);
         
         if (item && orderQuantity > 0) {
-            // Log the order activity
-            const supplierText = supplier ? ` from ${supplier}` : '';
-            const actionText = `Reordered (${orderQuantity} ${item.unit})${supplierText}${notes ? ` - Note: ${notes}` : ''}`;
-            logActivity(item.name, actionText);
+            // Show confirmation dialog
+            const confirmDialog = document.createElement('div');
+            confirmDialog.className = 'confirmation-dialog';
+            confirmDialog.innerHTML = `
+                <div class="confirmation-content">
+                    <h3>Confirm Order</h3>
+                    <p>You are about to order <strong>${orderQuantity} ${item.unit}</strong> of <strong>${item.name}</strong>.</p>
+                    ${supplier ? `<p>Supplier: ${supplier}</p>` : ''}
+                    ${notes ? `<p>Notes: ${notes}</p>` : ''}
+                    <div class="confirmation-actions">
+                        <button class="btn secondary cancel-confirmation">Cancel</button>
+                        <button class="btn primary confirm-action">Confirm</button>
+                    </div>
+                </div>
+            `;
             
-            // Save data
-            saveInventoryData();
+            document.body.appendChild(confirmDialog);
             
-            // Update UI
-            renderInventoryTable();
-            updateDashboard();
+            // Handle cancel button
+            confirmDialog.querySelector('.cancel-confirmation').addEventListener('click', function() {
+                document.body.removeChild(confirmDialog);
+            });
             
-            // Show success message and close modal
-            showToast(`Ordered ${orderQuantity} ${item.unit} of ${item.name}.`);
-            document.body.removeChild(modalContainer);
+            // Handle confirm button
+            confirmDialog.querySelector('.confirm-action').addEventListener('click', function() {
+                // Change to processing state
+                this.textContent = 'Processing...';
+                this.disabled = true;
+                
+                // Close both dialogs immediately
+                document.body.removeChild(confirmDialog);
+                document.body.removeChild(modalContainer);
+                
+                try {
+                    // Log the order activity
+                    const supplierText = supplier ? ` from ${supplier}` : '';
+                    const actionText = `Reordered (${orderQuantity} ${item.unit})${supplierText}${notes ? ` - Note: ${notes}` : ''}`;
+                    logActivity(item.name, actionText);
+                    
+                    // Save data
+                    saveInventoryData();
+                    
+                    // Update UI
+                    renderInventoryTable();
+                    updateDashboard();
+                    
+                    // Show success notification popup
+                    const popup = document.createElement('div');
+                    popup.className = 'popup-notification success';
+                    popup.innerHTML = `
+                        <div class="popup-icon">✓</div>
+                        <div class="popup-message">
+                            <strong>Success!</strong>
+                            <p>Ordered ${orderQuantity} ${item.unit} of ${item.name}</p>
+                        </div>
+                    `;
+                    
+                    document.body.appendChild(popup);
+                    
+                    // Show the popup (for animation)
+                    setTimeout(() => {
+                        popup.classList.add('show');
+                    }, 10);
+                    
+                    // Auto remove after 2 seconds
+                    setTimeout(() => {
+                        popup.classList.remove('show');
+                        setTimeout(() => {
+                            if (document.body.contains(popup)) {
+                                document.body.removeChild(popup);
+                            }
+                        }, 300);
+                    }, 2000);
+                } catch (error) {
+                    // Show error popup if something goes wrong
+                    const popup = document.createElement('div');
+                    popup.className = 'popup-notification error';
+                    popup.innerHTML = `
+                        <div class="popup-icon">✕</div>
+                        <div class="popup-message">
+                            <strong>Error!</strong>
+                            <p>Could not complete the order. Please try again.</p>
+                        </div>
+                    `;
+                    
+                    document.body.appendChild(popup);
+                    
+                    // Show the popup (for animation)
+                    setTimeout(() => {
+                        popup.classList.add('show');
+                    }, 10);
+                    
+                    // Auto remove after 3 seconds
+                    setTimeout(() => {
+                        popup.classList.remove('show');
+                        setTimeout(() => {
+                            if (document.body.contains(popup)) {
+                                document.body.removeChild(popup);
+                            }
+                        }, 300);
+                    }, 3000);
+                    
+                    console.error('Error processing order:', error);
+                }
+            });
+        } else {
+            // Show error if validation fails
+            let errorMessage = '';
+            
+            if (orderQuantity <= 0) {
+                errorMessage = 'Please enter a quantity greater than zero.';
+            } else {
+                errorMessage = 'Invalid input. Please check your entries.';
+            }
+            
+            // Show error message in the form
+            let errorElement = document.getElementById('order-error-message');
+            
+            if (!errorElement) {
+                errorElement = document.createElement('div');
+                errorElement.id = 'order-error-message';
+                errorElement.className = 'error-message';
+                errorElement.style.color = 'red';
+                errorElement.style.marginTop = '10px';
+                this.appendChild(errorElement);
+            }
+            
+            errorElement.textContent = errorMessage;
         }
     });
 }
 
-// Show toast message
+// Show toast message - improved version with popup notifications
 function showToast(message, type = 'success') {
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    toast.textContent = message;
+    // Create popup notification
+    const popup = document.createElement('div');
+    popup.className = `popup-notification ${type}`;
     
-    document.body.appendChild(toast);
+    // Define icon based on type
+    let icon = '✓';
+    if (type === 'error') icon = '✕';
+    if (type === 'warning') icon = '⚠';
     
-    // Trigger animation
+    // Set content
+    popup.innerHTML = `
+        <div class="popup-icon">${icon}</div>
+        <div class="popup-message">
+            <strong>${type === 'success' ? 'Success!' : type === 'error' ? 'Error!' : 'Warning!'}</strong>
+            <p>${message}</p>
+        </div>
+    `;
+    
+    document.body.appendChild(popup);
+    
+    // Show the popup (for animation)
     setTimeout(() => {
-        toast.classList.add('show');
+        popup.classList.add('show');
     }, 10);
     
-    // Remove after 3 seconds
+    // Auto remove after set time
+    const displayTime = type === 'error' ? 3000 : 2000;
     setTimeout(() => {
-        toast.classList.remove('show');
+        popup.classList.remove('show');
         setTimeout(() => {
-            document.body.removeChild(toast);
+            if (document.body.contains(popup)) {
+                document.body.removeChild(popup);
+            }
         }, 300);
-    }, 3000);
+    }, displayTime);
 }

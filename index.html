@@ -6,24 +6,109 @@
     <title>Dental Inventory Manager</title>
     <link rel="stylesheet" href="style.css">
     <script src="script.js" defer></script>
+    <meta name="description" content="A comprehensive inventory management system for dental practices">
+    <meta name="theme-color" content="#2196f3">
 </head>
 <body>
-    <header>
-        <div class="logo">
-            <h1>Dental Inventory Manager</h1>
+    <!-- Login Screen -->
+    <div id="login-screen" class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="logo login-logo">
+                    <h1>Dental Inventory Manager</h1>
+                </div>
+                <p>Please sign in to continue</p>
+            </div>
+            
+            <form id="login-form" class="login-form">
+                <div class="form-group">
+                    <label for="login-email">Email</label>
+                    <input type="email" id="login-email" placeholder="Your email" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="login-password">Password</label>
+                    <input type="password" id="login-password" placeholder="Your password" required>
+                </div>
+                
+                <div class="form-group remember-group">
+                    <input type="checkbox" id="remember-me">
+                    <label for="remember-me">Remember me</label>
+                </div>
+                
+                <div id="login-error" class="error-message" style="display: none;"></div>
+                
+                <div class="form-actions login-actions">
+                    <button type="submit" class="btn primary btn-full">Sign In</button>
+                </div>
+                
+                <div class="login-footer">
+                    <p>Don't have an account? <a href="#" id="switch-to-register">Register</a></p>
+                </div>
+            </form>
+            
+            <form id="register-form" class="register-form" style="display: none;">
+                <div class="form-group">
+                    <label for="register-name">Full Name</label>
+                    <input type="text" id="register-name" placeholder="Your full name" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="register-email">Email</label>
+                    <input type="email" id="register-email" placeholder="Your email" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="register-password">Password</label>
+                    <input type="password" id="register-password" placeholder="Choose a password" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="register-confirm-password">Confirm Password</label>
+                    <input type="password" id="register-confirm-password" placeholder="Confirm your password" required>
+                </div>
+                
+                <div id="register-error" class="error-message" style="display: none;"></div>
+                
+                <div class="form-actions login-actions">
+                    <button type="submit" class="btn primary btn-full">Register</button>
+                </div>
+                
+                <div class="login-footer">
+                    <p>Already have an account? <a href="#" id="switch-to-login">Sign In</a></p>
+                </div>
+            </form>
         </div>
-        <nav>
-            <ul>
-                <li><a href="#dashboard">Dashboard</a></li>
-                <li><a href="#inventory">Inventory</a></li>
-                <li><a href="#add-item">Add Item</a></li>
-                <li><a href="#reports">Reports</a></li>
-                <li><a href="#settings">Settings</a></li>
-            </ul>
-        </nav>
-    </header>
+    </div>
+    
+    <!-- Main Application (hidden until logged in) -->
+    <div id="app-container" style="display: none;">
+        <header>
+            <div class="logo">
+                <h1>Dental Inventory Manager</h1>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="#dashboard">Dashboard</a></li>
+                    <li><a href="#inventory">Inventory</a></li>
+                    <li><a href="#add-item">Add Item</a></li>
+                    <li><a href="#reports">Reports</a></li>
+                    <li><a href="#settings">Settings</a></li>
+                    <li class="user-dropdown">
+                        <a href="#" id="user-menu"><span id="current-user-name">User</span> <span class="dropdown-arrow">▼</span></a>
+                        <div class="dropdown-menu">
+                            <a href="#settings" class="dropdown-item" data-tab="profile">My Profile</a>
+                            <a href="#backup" class="dropdown-item" id="backup-data">Backup Data</a>
+                            <a href="#theme" class="dropdown-item" id="toggle-theme">Dark Mode</a>
+                            <div class="dropdown-divider"></div>
+                            <a href="#logout" class="dropdown-item" id="logout-button">Logout</a>
+                        </div>
+                    </li>
+                </ul>
+            </nav>
+        </header>
 
-    <main>
+        <main>
         <section id="dashboard" class="dashboard active">
             <h2>Dashboard</h2>
             <div class="dashboard-grid">
@@ -450,15 +535,38 @@
         </section>
     </main>
 
-    <footer>
-        <div class="footer-content">
-            <p>&copy; 2025 Dental Inventory Manager. All rights reserved.</p>
-            <div class="footer-links">
-                <a href="#">Help</a>
-                <a href="#">Privacy Policy</a>
-                <a href="#">Terms of Service</a>
+            <footer>
+                <div class="footer-content">
+                    <p>&copy; 2025 Dental Inventory Manager. All rights reserved.</p>
+                    <div class="footer-links">
+                        <a href="#">Help</a>
+                        <a href="#">Privacy Policy</a>
+                        <a href="#">Terms of Service</a>
+                    </div>
+                </div>
+            </footer>
+        </div> <!-- End app-container -->
+        
+        <!-- Loading overlay -->
+        <div id="loading-overlay" class="loading-overlay" style="display: none;">
+            <div class="spinner-container">
+                <div class="spinner large-spinner"></div>
+                <p>Loading...</p>
             </div>
         </div>
-    </footer>
-</body>
+        
+        <!-- Service worker registration for offline support -->
+        <script>
+            // We'll check if service workers are supported
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                    navigator.serviceWorker.register('/service-worker.js').then(function(registration) {
+                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                    }, function(err) {
+                        console.log('ServiceWorker registration failed: ', err);
+                    });
+                });
+            }
+        </script>
+    </body>
 </html>
