@@ -1,5 +1,5 @@
-// Mock data for inventory management
-const inventoryData = {
+// Default data for inventory management
+const defaultInventoryData = {
     items: [
         {
             id: 1,
@@ -11,7 +11,8 @@ const inventoryData = {
             status: "in-stock",
             expiry: "08/2025",
             price: 28.50,
-            location: "Cabinet A-3"
+            location: "Cabinet A-3",
+            description: "Light-cured composite resin for dental restorations"
         },
         {
             id: 2,
@@ -23,7 +24,8 @@ const inventoryData = {
             status: "low-stock",
             expiry: "05/2025",
             price: 42.75,
-            location: "Medication Cabinet"
+            location: "Medication Cabinet",
+            description: "Local anesthetic for dental procedures"
         },
         {
             id: 3,
@@ -35,7 +37,8 @@ const inventoryData = {
             status: "in-stock",
             expiry: "12/2026",
             price: 0.15,
-            location: "Supply Room B"
+            location: "Supply Room B",
+            description: "Disposable nitrile examination gloves"
         },
         {
             id: 4,
@@ -47,7 +50,8 @@ const inventoryData = {
             status: "out-of-stock",
             expiry: "N/A",
             price: 3.25,
-            location: "Supply Room A"
+            location: "Supply Room A",
+            description: "Waxed dental floss for patient use"
         },
         {
             id: 5,
@@ -59,7 +63,8 @@ const inventoryData = {
             status: "in-stock",
             expiry: "N/A",
             price: 450.00,
-            location: "Equipment Room"
+            location: "Equipment Room",
+            description: "High-speed dental handpiece for restorative procedures"
         }
     ],
     categories: ["consumables", "instruments", "equipment", "medications"],
@@ -104,6 +109,90 @@ const inventoryData = {
         }
     ]
 };
+
+// Load data from localStorage or use default
+let inventoryData = loadInventoryData();
+
+// Functions for data persistence
+function saveInventoryData() {
+    localStorage.setItem('dentalInventoryData', JSON.stringify(inventoryData));
+}
+
+function loadInventoryData() {
+    const storedData = localStorage.getItem('dentalInventoryData');
+    return storedData ? JSON.parse(storedData) : {...defaultInventoryData};
+}
+
+// Generate unique IDs for new items
+function generateId() {
+    const items = inventoryData.items;
+    return items.length > 0 ? Math.max(...items.map(item => item.id)) + 1 : 1;
+}
+
+// Update item status based on quantity
+function updateItemStatus(item) {
+    if (item.quantity <= 0) {
+        item.status = 'out-of-stock';
+    } else if (item.quantity <= item.minQuantity) {
+        item.status = 'low-stock';
+    } else {
+        item.status = 'in-stock';
+    }
+    return item;
+}
+
+// Add activity log entry
+function logActivity(itemName, action, user = 'Admin User') {
+    const activity = {
+        date: new Date().toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}),
+        item: itemName,
+        action: action,
+        user: user
+    };
+    
+    inventoryData.activities.unshift(activity);
+    saveInventoryData();
+    return activity;
+}
+
+// Export inventory to CSV
+function exportToCSV() {
+    // Column headers
+    const headers = ['ID', 'Name', 'Category', 'Quantity', 'Unit', 'Min Quantity', 'Status', 'Expiry', 'Price', 'Location', 'Description'];
+    
+    // Convert data to CSV rows
+    const rows = inventoryData.items.map(item => [
+        item.id,
+        item.name,
+        item.category,
+        item.quantity,
+        item.unit,
+        item.minQuantity,
+        item.status,
+        item.expiry,
+        item.price,
+        item.location,
+        item.description || ''
+    ]);
+    
+    // Combine headers and rows
+    const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.join(','))
+    ].join('\n');
+    
+    // Create downloadable link
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `dental-inventory-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.display = 'none';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
 
 // Wait for the DOM to be fully loaded
 document.addEventListener('DOMContentLoaded', () => {
@@ -313,8 +402,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const itemId = parseInt(this.getAttribute('data-id'));
                 const item = inventoryData.items.find(i => i.id === itemId);
                 if (item) {
-                    alert(`Edit item: ${item.name} (ID: ${item.id})`);
-                    // In a real app, this would open an edit form
+                    showEditItemModal(item);
                 }
             });
         });
@@ -324,27 +412,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const itemId = parseInt(this.getAttribute('data-id'));
                 const item = inventoryData.items.find(i => i.id === itemId);
                 if (item && item.quantity > 0) {
-                    // Reduce quantity by 1
-                    item.quantity -= 1;
-                    
-                    // Update status if needed
-                    if (item.quantity <= 0) {
-                        item.status = 'out-of-stock';
-                    } else if (item.quantity <= item.minQuantity) {
-                        item.status = 'low-stock';
-                    }
-                    
-                    // Add to activity log
-                    inventoryData.activities.unshift({
-                        date: new Date().toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'}),
-                        item: item.name,
-                        action: `Stock Reduced (1 ${item.unit})`,
-                        user: 'Admin User'
-                    });
-                    
-                    // Refresh the table
-                    renderInventoryTable();
-                    updateDashboard();
+                    showUseItemModal(item);
                 }
             });
         });
@@ -354,8 +422,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const itemId = parseInt(this.getAttribute('data-id'));
                 const item = inventoryData.items.find(i => i.id === itemId);
                 if (item) {
-                    alert(`Order more ${item.name}`);
-                    // In a real app, this would open an order form
+                    showOrderItemModal(item);
                 }
             });
         });
@@ -648,10 +715,21 @@ document.addEventListener('DOMContentLoaded', () => {
                                 ${reportContent}
                             </div>
                             <div class="report-actions" style="margin-top: 1rem;">
-                                <button class="btn secondary">Print Report</button>
-                                <button class="btn">Export PDF</button>
+                                <button class="btn secondary print-report">Print Report</button>
+                                <button class="btn export-csv">Export CSV</button>
                             </div>
                         `;
+                        
+                        // Add event listener to export button
+                        reportPreview.querySelector('.export-csv').addEventListener('click', function() {
+                            exportToCSV();
+                            showToast('Inventory data exported to CSV');
+                        });
+                        
+                        // Add event listener to print button
+                        reportPreview.querySelector('.print-report').addEventListener('click', function() {
+                            window.print();
+                        });
                     }, 1500);
                 }
             });
@@ -805,4 +883,403 @@ document.addEventListener('DOMContentLoaded', () => {
     renderInventoryTable();
     renderCategories();
     updateDashboard();
+    
+    // Save data before leaving page
+    window.addEventListener('beforeunload', () => {
+        saveInventoryData();
+    });
+    
+    // Add a few items to demonstrate search and filter functionality
+    if (inventoryData.items.length <= 5) {
+        const additionalItems = [
+            {
+                id: generateId(),
+                name: "Dental Impression Material",
+                category: "consumables",
+                quantity: 15,
+                unit: "Kits",
+                minQuantity: 5,
+                status: "in-stock",
+                expiry: "09/2025",
+                price: 35.20,
+                location: "Supply Room B",
+                description: "Silicone-based impression material for dental procedures"
+            },
+            {
+                id: generateId(),
+                name: "Dental Mirrors",
+                category: "instruments",
+                quantity: 25,
+                unit: "Pieces",
+                minQuantity: 10,
+                status: "in-stock",
+                expiry: "N/A",
+                price: 8.75,
+                location: "Instrument Cabinet",
+                description: "Dental examination mirrors for oral inspection"
+            },
+            {
+                id: generateId(),
+                name: "Orthodontic Brackets",
+                category: "consumables",
+                quantity: 4,
+                unit: "Packs",
+                minQuantity: 5,
+                status: "low-stock",
+                expiry: "11/2026",
+                price: 85.90,
+                location: "Orthodontic Supplies",
+                description: "Metal brackets for orthodontic treatments"
+            },
+            {
+                id: generateId(),
+                name: "X-Ray Films",
+                category: "consumables",
+                quantity: 3,
+                unit: "Boxes",
+                minQuantity: 5,
+                status: "low-stock",
+                expiry: "07/2025",
+                price: 42.50,
+                location: "Imaging Room",
+                description: "Dental X-ray films for radiographic imaging"
+            },
+            {
+                id: generateId(),
+                name: "Sterilization Pouches",
+                category: "consumables",
+                quantity: 120,
+                unit: "Pieces",
+                minQuantity: 50,
+                status: "in-stock",
+                expiry: "05/2026",
+                price: 0.35,
+                location: "Sterilization Area",
+                description: "Self-sealing sterilization pouches for dental instruments"
+            }
+        ];
+        
+        inventoryData.items = [...inventoryData.items, ...additionalItems];
+        saveInventoryData();
+    }
 });
+
+// Show Edit Item Modal function
+function showEditItemModal(item) {
+    // Create modal container
+    const modalContainer = document.createElement('div');
+    modalContainer.className = 'modal-container';
+    
+    // Create modal content
+    modalContainer.innerHTML = `
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Edit Item: ${item.name}</h3>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="edit-item-form">
+                    <div class="form-group">
+                        <label for="edit-item-name">Item Name</label>
+                        <input type="text" id="edit-item-name" value="${item.name}" required>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit-item-category">Category</label>
+                            <select id="edit-item-category" required>
+                                ${inventoryData.categories.map(category => 
+                                    `<option value="${category}" ${item.category === category ? 'selected' : ''}>${category.charAt(0).toUpperCase() + category.slice(1)}</option>`
+                                ).join('')}
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="edit-item-quantity">Quantity</label>
+                            <input type="number" id="edit-item-quantity" value="${item.quantity}" min="0" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit-item-unit">Unit</label>
+                            <input type="text" id="edit-item-unit" value="${item.unit}" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="edit-item-min-quantity">Min Quantity</label>
+                            <input type="number" id="edit-item-min-quantity" value="${item.minQuantity}" min="0" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit-item-price">Price</label>
+                            <input type="number" id="edit-item-price" value="${item.price}" min="0" step="0.01" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="edit-item-expiry">Expiry Date</label>
+                            <input type="text" id="edit-item-expiry" value="${item.expiry}">
+                            <small>Format: MM/YYYY or N/A</small>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="edit-item-location">Location</label>
+                        <input type="text" id="edit-item-location" value="${item.location}">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="edit-item-description">Description</label>
+                        <textarea id="edit-item-description" rows="3">${item.description || ''}</textarea>
+                    </div>
+                    
+                    <input type="hidden" id="edit-item-id" value="${item.id}">
+                    
+                    <div class="form-actions">
+                        <button type="button" class="btn secondary close-modal">Cancel</button>
+                        <button type="submit" class="btn primary">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+    
+    // Add modal to the page
+    document.body.appendChild(modalContainer);
+    
+    // Add event listeners
+    modalContainer.querySelector('.close-modal').addEventListener('click', function() {
+        document.body.removeChild(modalContainer);
+    });
+    
+    modalContainer.querySelector('#edit-item-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Get the updated item data
+        const updatedItem = {
+            id: parseInt(document.getElementById('edit-item-id').value),
+            name: document.getElementById('edit-item-name').value,
+            category: document.getElementById('edit-item-category').value,
+            quantity: parseInt(document.getElementById('edit-item-quantity').value),
+            unit: document.getElementById('edit-item-unit').value,
+            minQuantity: parseInt(document.getElementById('edit-item-min-quantity').value),
+            price: parseFloat(document.getElementById('edit-item-price').value),
+            expiry: document.getElementById('edit-item-expiry').value,
+            location: document.getElementById('edit-item-location').value,
+            description: document.getElementById('edit-item-description').value
+        };
+        
+        // Update item status
+        updatedItem.status = updateItemStatus(updatedItem).status;
+        
+        // Find and update the item in the inventory
+        const index = inventoryData.items.findIndex(i => i.id === updatedItem.id);
+        if (index !== -1) {
+            inventoryData.items[index] = updatedItem;
+            
+            // Log the activity
+            logActivity(updatedItem.name, 'Item Updated');
+            
+            // Save data
+            saveInventoryData();
+            
+            // Update UI
+            renderInventoryTable();
+            updateDashboard();
+            
+            // Show success message and close modal
+            showToast(`${updatedItem.name} has been updated.`);
+            document.body.removeChild(modalContainer);
+        }
+    });
+}
+
+// Show Use Item Modal function
+function showUseItemModal(item) {
+    // Create modal container
+    const modalContainer = document.createElement('div');
+    modalContainer.className = 'modal-container';
+    
+    // Create modal content
+    modalContainer.innerHTML = `
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Use Item: ${item.name}</h3>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="use-item-form">
+                    <p>Current stock: ${item.quantity} ${item.unit}</p>
+                    
+                    <div class="form-group">
+                        <label for="use-quantity">Quantity to Use</label>
+                        <input type="number" id="use-quantity" min="1" max="${item.quantity}" value="1" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="use-notes">Notes (Optional)</label>
+                        <textarea id="use-notes" rows="2"></textarea>
+                    </div>
+                    
+                    <input type="hidden" id="use-item-id" value="${item.id}">
+                    
+                    <div class="form-actions">
+                        <button type="button" class="btn secondary close-modal">Cancel</button>
+                        <button type="submit" class="btn primary">Confirm Use</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+    
+    // Add modal to the page
+    document.body.appendChild(modalContainer);
+    
+    // Add event listeners
+    modalContainer.querySelector('.close-modal').addEventListener('click', function() {
+        document.body.removeChild(modalContainer);
+    });
+    
+    modalContainer.querySelector('#use-item-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const itemId = parseInt(document.getElementById('use-item-id').value);
+        const useQuantity = parseInt(document.getElementById('use-quantity').value);
+        const notes = document.getElementById('use-notes').value;
+        
+        const item = inventoryData.items.find(i => i.id === itemId);
+        
+        if (item && useQuantity > 0 && useQuantity <= item.quantity) {
+            // Reduce the quantity
+            item.quantity -= useQuantity;
+            
+            // Update status
+            updateItemStatus(item);
+            
+            // Log the activity
+            const actionText = `Stock Reduced (${useQuantity} ${item.unit})${notes ? ` - Note: ${notes}` : ''}`;
+            logActivity(item.name, actionText);
+            
+            // Save data
+            saveInventoryData();
+            
+            // Update UI
+            renderInventoryTable();
+            updateDashboard();
+            
+            // Show success message and close modal
+            showToast(`Used ${useQuantity} ${item.unit} of ${item.name}.`);
+            document.body.removeChild(modalContainer);
+        }
+    });
+}
+
+// Show Order Item Modal function
+function showOrderItemModal(item) {
+    // Calculate suggested order quantity
+    const suggestedQuantity = Math.max(item.minQuantity * 2 - item.quantity, 1);
+    
+    // Create modal container
+    const modalContainer = document.createElement('div');
+    modalContainer.className = 'modal-container';
+    
+    // Create modal content
+    modalContainer.innerHTML = `
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Order Item: ${item.name}</h3>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="order-item-form">
+                    <p>Current stock: ${item.quantity} ${item.unit}</p>
+                    <p>Minimum quantity: ${item.minQuantity} ${item.unit}</p>
+                    
+                    <div class="form-group">
+                        <label for="order-quantity">Quantity to Order</label>
+                        <input type="number" id="order-quantity" min="1" value="${suggestedQuantity}" required>
+                        <small>Suggested order: ${suggestedQuantity} ${item.unit}</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="supplier">Supplier</label>
+                        <input type="text" id="supplier" placeholder="Enter supplier name">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="order-notes">Notes (Optional)</label>
+                        <textarea id="order-notes" rows="2"></textarea>
+                    </div>
+                    
+                    <input type="hidden" id="order-item-id" value="${item.id}">
+                    
+                    <div class="form-actions">
+                        <button type="button" class="btn secondary close-modal">Cancel</button>
+                        <button type="submit" class="btn primary">Place Order</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+    
+    // Add modal to the page
+    document.body.appendChild(modalContainer);
+    
+    // Add event listeners
+    modalContainer.querySelector('.close-modal').addEventListener('click', function() {
+        document.body.removeChild(modalContainer);
+    });
+    
+    modalContainer.querySelector('#order-item-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const itemId = parseInt(document.getElementById('order-item-id').value);
+        const orderQuantity = parseInt(document.getElementById('order-quantity').value);
+        const supplier = document.getElementById('supplier').value;
+        const notes = document.getElementById('order-notes').value;
+        
+        const item = inventoryData.items.find(i => i.id === itemId);
+        
+        if (item && orderQuantity > 0) {
+            // Log the order activity
+            const supplierText = supplier ? ` from ${supplier}` : '';
+            const actionText = `Reordered (${orderQuantity} ${item.unit})${supplierText}${notes ? ` - Note: ${notes}` : ''}`;
+            logActivity(item.name, actionText);
+            
+            // Save data
+            saveInventoryData();
+            
+            // Update UI
+            renderInventoryTable();
+            updateDashboard();
+            
+            // Show success message and close modal
+            showToast(`Ordered ${orderQuantity} ${item.unit} of ${item.name}.`);
+            document.body.removeChild(modalContainer);
+        }
+    });
+}
+
+// Show toast message
+function showToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    
+    document.body.appendChild(toast);
+    
+    // Trigger animation
+    setTimeout(() => {
+        toast.classList.add('show');
+    }, 10);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => {
+            document.body.removeChild(toast);
+        }, 300);
+    }, 3000);
+}
