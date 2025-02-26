@@ -1,0 +1,29 @@
+Instructions to push your dental inventory website to Git:
+
+1. Initialize a Git repository:
+   Open Command Prompt or Git Bash in your project folder (C:\users\youte\documents\claude) and run:
+   git init
+
+2. Add all files to Git:
+   git add .
+
+3. Commit the files:
+   git commit -m "Initial commit of dental inventory management website"
+
+4. Connect to a remote repository:
+   - First, create a new repository on GitHub, GitLab, or your preferred Git hosting service
+   - Then connect your local repository to the remote one:
+   git remote add origin YOUR_REPOSITORY_URL
+   (Replace YOUR_REPOSITORY_URL with the URL of your Git repository)
+
+5. Push your code to the remote repository:
+   git push -u origin main
+   (or "git push -u origin master" depending on your default branch name)
+
+Note: If you're new to Git, you may need to configure your username and email first:
+git config --global user.name "Your Name"
+git config --global user.email "your.email@example.com"
+
+Additional considerations:
+- You might want to create a .gitignore file to exclude certain files or directories
+- If pushing to GitHub, consider adding a README.md file to describe your project

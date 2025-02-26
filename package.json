@@ -1,0 +1,14 @@
+{
+  "name": "dental-inventory-management",
+  "version": "1.0.0",
+  "description": "A simple web-based application for dental practices to manage their inventory",
+  "main": "index.html",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0"
+  }
+}
