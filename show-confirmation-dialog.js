@@ -43,8 +43,15 @@ function showConfirmationDialog(options) {
         confirmationDialog.querySelector('.confirm-action').focus();
     }, 10);
     
+    // Prevent opening multiple dialogs when pressing Enter key
+    let dialogActive = true;
+    
     // Handle cancel button
     confirmationDialog.querySelector('.cancel-confirmation').addEventListener('click', function() {
+        // Only process if dialog is active
+        if (!dialogActive) return;
+        dialogActive = false;
+        
         // Close the dialog
         document.body.removeChild(confirmationDialog);
         
@@ -54,6 +61,10 @@ function showConfirmationDialog(options) {
     
     // Handle confirm button
     confirmationDialog.querySelector('.confirm-action').addEventListener('click', function() {
+        // Only process if dialog is active
+        if (!dialogActive) return;
+        dialogActive = false;
+        
         // Close the dialog
         document.body.removeChild(confirmationDialog);
         
@@ -63,7 +74,8 @@ function showConfirmationDialog(options) {
     
     // Close on Escape key
     document.addEventListener('keydown', function escapeHandler(e) {
-        if (e.key === 'Escape') {
+        if (e.key === 'Escape' && dialogActive) {
+            dialogActive = false;
             document.body.removeChild(confirmationDialog);
             onCancel();
             document.removeEventListener('keydown', escapeHandler);
