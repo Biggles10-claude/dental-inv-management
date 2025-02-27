@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fix Inventory Updates</title>
+    <style>
+        #fix-button {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background-color: #2196f3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 16px;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            z-index: 1000;
+            font-weight: bold;
+        }
+        
+        #fix-button:hover {
+            background-color: #0d47a1;
+        }
+    </style>
+</head>
+<body>
+    <!-- 
+        This script adds a button to activate fixes for the inventory update issue
+        It will load our enhancement scripts when clicked
+    -->
+    <button id="fix-button">Fix Inventory Updates</button>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const fixButton = document.getElementById('fix-button');
+            
+            fixButton.addEventListener('click', function() {
+                // Load our fix scripts
+                function loadScript(src) {
+                    return new Promise((resolve, reject) => {
+                        const script = document.createElement('script');
+                        script.src = src;
+                        script.onload = resolve;
+                        script.onerror = reject;
+                        document.body.appendChild(script);
+                    });
+                }
+                
+                // Load our enhancement scripts
+                Promise.all([
+                    loadScript('delete-function.js'),
+                    loadScript('delete-item-implementation.js')
+                ]).then(() => {
+                    // Show success message
+                    alert('Inventory update fix applied successfully! Edits to items will now appear immediately.');
+                    
+                    // Hide the button
+                    fixButton.style.display = 'none';
+                }).catch(error => {
+                    console.error('Error loading fix scripts:', error);
+                    alert('Failed to apply inventory update fix. Please check the console for errors.');
+                });
+            });
+        });
+    </script>
+</body>
+</html>
