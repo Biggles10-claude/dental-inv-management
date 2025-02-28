@@ -8,6 +8,14 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Create a global popup function
     window.forceShowSuccessPopup = function(message) {
+        // Skip the "test popup" message and any inventory fix messages
+        if (message === 'Test success message' || 
+            message === 'inventory fix applied' ||
+            message === 'Inventory update fix applied') {
+            console.log('Skipping popup message:', message);
+            return;
+        }
+        
         console.log('Force showing success popup:', message);
         
         // Create the popup element with inline styles
@@ -129,27 +137,7 @@ document.addEventListener('DOMContentLoaded', function() {
         forceShowSuccessPopup('Test success message');
     };
     
-    // Add direct inline popup button for immediate testing
-    setTimeout(function() {
-        const testButton = document.createElement('button');
-        testButton.textContent = 'Test Popup';
-        testButton.style.position = 'fixed';
-        testButton.style.left = '10px';
-        testButton.style.bottom = '10px';
-        testButton.style.zIndex = '9999';
-        testButton.style.padding = '8px 16px';
-        testButton.style.backgroundColor = '#2196f3';
-        testButton.style.color = 'white';
-        testButton.style.border = 'none';
-        testButton.style.borderRadius = '4px';
-        testButton.style.cursor = 'pointer';
-        
-        testButton.addEventListener('click', function() {
-            forceShowSuccessPopup('Test success message');
-        });
-        
-        document.body.appendChild(testButton);
-    }, 2000);
+    // Test button removed to prevent unwanted popups
     
     console.log('Success popup fix installed');
 });

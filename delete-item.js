@@ -600,44 +600,7 @@ function directSuccessPopup(message) {
         // Apply the edit modal fix after a delay to ensure script.js has loaded
         setTimeout(fixEditItemModal, 500);
         
-        // Small notification that appears but doesn't need interaction
-        const notification = document.createElement('div');
-        notification.textContent = 'Inventory update fix applied';
-        notification.style.cssText = `
-            position: fixed;
-            bottom: 10px;
-            left: 10px;
-            background-color: rgba(33, 150, 243, 0.9);
-            color: white;
-            padding: 8px 16px;
-            border-radius: 4px;
-            font-size: 14px;
-            z-index: 9999;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            opacity: 0;
-            transform: translateY(20px);
-            transition: opacity 0.3s, transform 0.3s;
-        `;
-        
-        document.body.appendChild(notification);
-        
-        // Show notification
-        setTimeout(() => {
-            notification.style.opacity = '1';
-            notification.style.transform = 'translateY(0)';
-            
-            // Hide after 3 seconds
-            setTimeout(() => {
-                notification.style.opacity = '0';
-                notification.style.transform = 'translateY(20px)';
-                
-                // Remove from DOM after animation
-                setTimeout(() => {
-                    if (document.body.contains(notification)) {
-                        document.body.removeChild(notification);
-                    }
-                }, 300);
-            }, 3000);
-        }, 10);
+        // Log in console instead of showing notification
+        console.log('Inventory update fix applied');
     }, 1000);
 });
