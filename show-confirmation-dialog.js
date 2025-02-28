@@ -72,13 +72,19 @@ function showConfirmationDialog(options) {
         onConfirm();
     });
     
-    // Close on Escape key
+    // Close on Escape key and prevent Enter key spam
     document.addEventListener('keydown', function escapeHandler(e) {
         if (e.key === 'Escape' && dialogActive) {
             dialogActive = false;
             document.body.removeChild(confirmationDialog);
             onCancel();
             document.removeEventListener('keydown', escapeHandler);
+        }
+        
+        // Prevent Enter key from submitting multiple times
+        if (e.key === 'Enter' && !dialogActive) {
+            e.preventDefault();
+            e.stopPropagation();
         }
     });
     

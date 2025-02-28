@@ -575,19 +575,209 @@ function directSuccessPopup(message) {
                     const originalShowOrderItemModal = showOrderItemModal;
                     
                     window.showOrderItemModal = function(item) {
-                        // Check if a modal or confirmation dialog already exists and remove it first
-                        const existingModal = document.querySelector('.modal-container');
-                        if (existingModal) {
-                            document.body.removeChild(existingModal);
-                        }
+                        // Remove all dialogs and modals to prevent stacking
+                        const existingModals = document.querySelectorAll('.modal-container');
+                        existingModals.forEach(modal => {
+                            if (document.body.contains(modal)) {
+                                document.body.removeChild(modal);
+                            }
+                        });
                         
-                        const existingConfirmation = document.querySelector('.confirmation-dialog');
-                        if (existingConfirmation) {
-                            document.body.removeChild(existingConfirmation);
-                        }
+                        const existingConfirmations = document.querySelectorAll('.confirmation-dialog');
+                        existingConfirmations.forEach(dialog => {
+                            if (document.body.contains(dialog)) {
+                                document.body.removeChild(dialog);
+                            }
+                        });
                         
-                        // Call the original function
-                        return originalShowOrderItemModal(item);
+                        try {
+                            // Ensure we're working with the most up-to-date item data
+                            const itemIndex = inventoryData.items.findIndex(i => i.id === item.id);
+                            if (itemIndex === -1) {
+                                showToast('Item not found', 'error');
+                                return;
+                            }
+                            
+                            // Get the fresh item data
+                            const freshItem = inventoryData.items[itemIndex];
+                            
+                            // Calculate suggested order quantity
+                            const suggestedQuantity = Math.max(freshItem.minQuantity * 2 - freshItem.quantity, 1);
+                            
+                            // Create modal container
+                            const modalContainer = document.createElement('div');
+                            modalContainer.className = 'modal-container';
+                            
+                            // Create modal content
+                            modalContainer.innerHTML = `
+                                <div class="modal">
+                                    <div class="modal-header">
+                                        <h3>Order Item: ${freshItem.name}</h3>
+                                        <button class="close-modal">&times;</button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <form id="order-item-form">
+                                            <p>Current stock: <strong>${freshItem.quantity} ${freshItem.unit}</strong></p>
+                                            <p>Minimum quantity: <strong>${freshItem.minQuantity} ${freshItem.unit}</strong></p>
+                                            
+                                            <div class="form-group">
+                                                <label for="order-quantity">Quantity to Order</label>
+                                                <input type="number" id="order-quantity" min="1" value="${suggestedQuantity}" required>
+                                                <small>Suggested order: ${suggestedQuantity} ${freshItem.unit}</small>
+                                            </div>
+                                            
+                                            <div class="form-group">
+                                                <label for="supplier">Supplier</label>
+                                                <input type="text" id="supplier" placeholder="Enter supplier name">
+                                            </div>
+                                            
+                                            <div class="form-group">
+                                                <label for="order-notes">Notes (Optional)</label>
+                                                <textarea id="order-notes" rows="2"></textarea>
+                                            </div>
+                                            
+                                            <div id="order-error-container" class="error-message" style="display: none; color: red; margin: 10px 0; text-align: center;"></div>
+                                            
+                                            <div class="form-actions">
+                                                <button type="button" class="btn secondary close-modal">Cancel</button>
+                                                <button type="submit" class="btn primary">Place Order</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            `;
+                            
+                            // Add modal to the page
+                            document.body.appendChild(modalContainer);
+                            
+                            // Add event listeners for closing the modal
+                            const closeButtons = modalContainer.querySelectorAll('.close-modal');
+                            closeButtons.forEach(button => {
+                                button.addEventListener('click', function() {
+                                    document.body.removeChild(modalContainer);
+                                });
+                            });
+                            
+                            // Add event listener for form submission
+                            const orderForm = modalContainer.querySelector('#order-item-form');
+                            
+                            // Flag to prevent multiple submissions within this form
+                            let formSubmitting = false;
+                            
+                            orderForm.addEventListener('submit', function(e) {
+                                e.preventDefault();
+                                
+                                // Prevent multiple submissions
+                                if (formSubmitting) {
+                                    return false;
+                                }
+                                formSubmitting = true;
+                                
+                                // Clear any previous error messages
+                                const errorContainer = document.getElementById('order-error-container');
+                                errorContainer.style.display = 'none';
+                                errorContainer.textContent = '';
+                                
+                                // Get form values
+                                const orderQuantity = parseInt(document.getElementById('order-quantity').value);
+                                const supplier = document.getElementById('supplier').value;
+                                const notes = document.getElementById('order-notes').value;
+                                
+                                // Validate form input
+                                if (isNaN(orderQuantity) || orderQuantity <= 0) {
+                                    errorContainer.textContent = 'Please enter a quantity greater than zero.';
+                                    errorContainer.style.display = 'block';
+                                    return;
+                                }
+                                
+                                // Remove any existing dialogs first
+                                const existingDialogs = document.querySelectorAll('.confirmation-dialog');
+                                existingDialogs.forEach(dialog => {
+                                    if (document.body.contains(dialog)) {
+                                        document.body.removeChild(dialog);
+                                    }
+                                });
+                                
+                                // Create confirmation dialog instead of using enhanced version
+                                const confirmDialog = document.createElement('div');
+                                confirmDialog.className = 'confirmation-dialog';
+                                confirmDialog.innerHTML = `
+                                    <div class="confirmation-content">
+                                        <h3>Confirm Order</h3>
+                                        <p>You are about to order <strong>${orderQuantity} ${freshItem.unit}</strong> of <strong>${freshItem.name}</strong>.</p>
+                                        ${supplier ? `<p>Supplier: ${supplier}</p>` : ''}
+                                        ${notes ? `<p>Notes: ${notes}</p>` : ''}
+                                        <div class="confirmation-actions">
+                                            <button class="btn secondary cancel-confirmation">Cancel</button>
+                                            <button class="btn primary confirm-action">Confirm</button>
+                                        </div>
+                                    </div>
+                                `;
+                                
+                                document.body.appendChild(confirmDialog);
+                                
+                                // Flag to prevent multiple submissions
+                                let isProcessing = false;
+                                
+                                // Handle cancel button
+                                confirmDialog.querySelector('.cancel-confirmation').addEventListener('click', function() {
+                                    document.body.removeChild(confirmDialog);
+                                });
+                                
+                                // Handle confirm button
+                                confirmDialog.querySelector('.confirm-action').addEventListener('click', function() {
+                                    // Prevent multiple submissions
+                                    if (isProcessing) return;
+                                    isProcessing = true;
+                                    
+                                    // Change to processing state
+                                    this.textContent = 'Processing...';
+                                    this.disabled = true;
+                                    
+                                    try {
+                                        // Need to get the item again as it may have been updated
+                                        const currentIndex = inventoryData.items.findIndex(i => i.id === freshItem.id);
+                                        
+                                        if (currentIndex === -1) {
+                                            throw new Error('Item no longer exists in inventory');
+                                        }
+                                        
+                                        const currentItem = {...inventoryData.items[currentIndex]};
+                                        
+                                        // Log the order activity
+                                        const supplierText = supplier ? ` from ${supplier}` : '';
+                                        const actionText = `Reordered (${orderQuantity} ${currentItem.unit})${supplierText}${notes ? ` - Note: ${notes}` : ''}`;
+                                        logActivity(currentItem.name, actionText);
+                                        
+                                        // Save data to localStorage
+                                        saveInventoryData();
+                                        
+                                        // Close dialogs
+                                        document.body.removeChild(confirmDialog);
+                                        document.body.removeChild(modalContainer);
+                                        
+                                        // Update UI
+                                        renderInventoryTable();
+                                        updateDashboard();
+                                        
+                                        // Show success notification
+                                        showToast(`Ordered ${orderQuantity} ${currentItem.unit} of ${currentItem.name}`, 'success');
+                                    } catch (error) {
+                                        console.error('Error processing order:', error);
+                                        
+                                        // Close confirmation dialog
+                                        document.body.removeChild(confirmDialog);
+                                        
+                                        // Show error message in the form
+                                        errorContainer.textContent = error.message || 'An error occurred. Please try again.';
+                                        errorContainer.style.display = 'block';
+                                    }
+                                });
+                            });
+                        } catch (error) {
+                            console.error('Error showing order item modal:', error);
+                            showToast('Could not open order form. Please try again.', 'error');
+                        }
                     };
                     
                     console.log('Successfully patched order modal function');
